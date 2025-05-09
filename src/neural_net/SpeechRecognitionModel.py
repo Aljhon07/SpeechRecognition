@@ -51,7 +51,7 @@ class ResidualBlock(nn.Module):
 
 # ======= Model =======
 class SpeechRecognitionModel(nn.Module):
-    def __init__(self, vocab_size=1000,):
+    def __init__(self, vocab_size=config.H_PARAMS["VOCAB_SIZE"]):
         super().__init__()
         self.cnn = nn.Sequential(
             nn.Conv2d(1, 32, kernel_size=(5, 5), stride=(1, 1), padding=5//2),
@@ -71,14 +71,14 @@ class SpeechRecognitionModel(nn.Module):
         self.gru = nn.GRU(
             input_size=128*8,  # From AdaptiveAvgPool output
             hidden_size=512,
-            num_layers=2,
-            bidirectional=True,
+            num_layers=1,
+            bidirectional=False,
             dropout=0.2,
             batch_first=True
         )
         
         # Remove Dropout, add LayerNorm
-        self.fc = nn.Linear(128 * 8, vocab_size)
+        self.fc = nn.Linear(64 * 8, vocab_size)
         
     def _make_layer(self, in_channels, out_channels, blocks, dropout=None):
         layers = []
@@ -88,17 +88,19 @@ class SpeechRecognitionModel(nn.Module):
         return nn.Sequential(*layers)
     
     def forward(self, x):
+        # Expected Input: [B, T, F]
+        x = x.unsqueeze(1).contiguous()  # [B, 1, T, F]
         if verbose:
             print(f"Input Stats: {x.shape} | Min: {x.min()} |  Max: {x.max()} | Std: {x.std()} | Mean: {x.mean()}")
         x = self.cnn(x) # [B, C, F, T]
         if verbose:
-            print(f"[Initial Downsample] Shape: {x.shape}  | Min: {x.min()} | Max: {x.max()} | Std: {x.std()} | Mean: {x.mean()}")
+            print(f"[Initial Conv2d] Shape: {x.shape}  | Min: {x.min()} | Max: {x.max()} | Std: {x.std()} | Mean: {x.mean()}")
         x = self.layer1(x)
         if verbose:
             print(f"[Layer 1] Shape: {x.shape} | Min: {x.min()} | Max: {x.max()} | Std: {x.std()} | Mean: {x.mean()}")
-        x = self.layer2(x)
-        if verbose:
-            print(f"[Layer 2] Shape: {x.shape} | Min: {x.min()}  | Max: {x.max()} | Std: {x.std()} | Mean: {x.mean()}")
+        # x = self.layer2(x)
+        # if verbose:
+        #     print(f"[Layer 2] Shape: {x.shape} | Min: {x.min()}  | Max: {x.max()} | Std: {x.std()} | Mean: {x.mean()}")
 
         # x = self.layer3(x)
         # if verbose:

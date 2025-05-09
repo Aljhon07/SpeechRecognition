@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+import config 
 
-
+verbose = config.H_PARAMS["VERBOSE"]
 class ActDropNormCNN1D(nn.Module):
     def __init__(self, n_feats, dropout, keep_shape=False):
         super(ActDropNormCNN1D, self).__init__()
@@ -36,6 +37,7 @@ class LightWeightModel(nn.Module):
         self.cnn = nn.Sequential(
             nn.Conv1d(n_feats, n_feats, 10, 2, padding=10//2),
             ActDropNormCNN1D(n_feats, dropout),
+        
         )
         self.dense = nn.Sequential(
             nn.Linear(n_feats, 128),
@@ -59,18 +61,24 @@ class LightWeightModel(nn.Module):
         return (torch.zeros(n*1, batch_size, hs),
                 torch.zeros(n*1, batch_size, hs))
 
-    def forward(self, x, hidden):
+    def forward(self, x, hidden=None):
         x = x.squeeze(1)  # batch, feature, time
-        print(f"Input Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
+        if verbose:
+            print(f"Input Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
         x = self.cnn(x) # batch, time, feature
-        print(f"After CNN Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
+        if verbose:
+            print(f"After CNN Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
         x = self.dense(x) # batch, time, feature
-        print(f"After Dense Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
+        if verbose:
+            print(f"After Dense Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
         x = x.transpose(0, 1) # time, batch, feature
-        print(f"After Transpose Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
+        if verbose:
+            print(f"After Transpose Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
         out, (hn, cn) = self.lstm(x, hidden)
-        print(f"After LSTM Shape: {out.shape} | Contiguous: {out.is_contiguous()}")
+        if verbose:
+            print(f"After LSTM Shape: {out.shape} | Contiguous: {out.is_contiguous()}")
         x = self.dropout2(F.gelu(self.layer_norm2(out)))  # (time, batch, n_class)
-        print(f"After Layer Norm Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
-        return self.final_fc(x), (hn, cn)
+        if verbose:
+            print(f"After Layer Norm Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
+        return self.final_fc(x), (hn, cn)  # (time, batch, n_class)
 

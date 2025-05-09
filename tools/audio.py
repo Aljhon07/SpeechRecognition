@@ -1,15 +1,15 @@
 import os
 import subprocess
 import config
+from pathlib import Path
+
 def to_wav(input_file, output_file):
     try:
-        print(input_file)
         if os.path.exists(output_file):
-            print(f"File {output_file} already exists. Skipping conversion.")
+            print(f"File {output_file.relative_to(Path.cwd())} already exists. Skipping conversion.", end="\r")
             return
 
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
-
         command = [
             'ffmpeg',
             '-i', input_file,
@@ -19,9 +19,7 @@ def to_wav(input_file, output_file):
             output_file
         ]
         subprocess.run(command, check=True, stderr=subprocess.PIPE) #added stderr to help with debugging.
-
-        print(f"Successfully converted {input_file} to {output_file}")
-
+        return output_file
     except FileNotFoundError:
         print("Error: FFmpeg not found. Make sure it's installed and in your PATH.")
     except subprocess.CalledProcessError as e:

@@ -1,16 +1,26 @@
 import torch
 import torchaudio
+import winsound
+import json
 import torchaudio.transforms as T
 import torchaudio.functional as F
 import matplotlib.pyplot as plt
 import numpy as np
 import re
+import time
+import config
+import os
+import pandas as pd
 
-def normalize_text(text):
-    remove_chars = r"[?!’–—‘\-\.:;()“”\"]"
+def normalize_text(input):
+    # remove_chars = r"[?!’–—‘\-\.:;()“”\"]"
+    # text = input.lower()
+    # text = text.replace('"', ' ')
+    # text = re.sub(remove_chars, '', text)
+
+    
+    text = re.sub(r'[^a-zA-Z0-9\s]', '', input)
     text = text.lower()
-    text = text.replace('"', ' ').replace("'", '')
-    text = re.sub(remove_chars, '', text)
 
     return text
 
@@ -27,7 +37,12 @@ def mean_norm(spectrogram):
 def rms_normalize(waveform):
     rms = waveform.pow(2).mean().sqrt()
     gain = 0.1 / rms
-    if waveform.numel() == 0 or rms < 1e-5:
+    if waveform.numel() == 0:
+        print("Waveform is empty.")
+        return None
+    
+    if rms < 1e-5:
+        print(f"RMS is too low: {rms.item()}")
         return None
     return waveform * gain
 
@@ -94,16 +109,15 @@ def plot_spectrogram(orig, normalized, sample_rate=16000):
 
 def double_vad(audio, sample_rate=16000):
     # Apply VAD from the front
-    trimmed_front = F.vad(audio, sample_rate=sample_rate, trigger_level=5.0)
+    trimmed_front = F.vad(audio, sample_rate=sample_rate, trigger_level=7.0)
     
-    if trimmed_front.size(1) < 2:
-        print("Less than 2.5")
+    if trimmed_front.size(1) < 4:
         return audio
     # Reverse the waveform along the time dimension
     reversed_audio = torch.flip(trimmed_front, dims=[-1])
     
     # Apply VAD on reversed audio (trims end of original)
-    trimmed_back = F.vad(reversed_audio, sample_rate=sample_rate, trigger_level=5.0)
+    trimmed_back = F.vad(reversed_audio, sample_rate=sample_rate, trigger_level=7.0)
     
     # Flip back to original orientation
     final_audio = torch.flip(trimmed_back, dims=[-1])
@@ -113,10 +127,10 @@ def double_vad(audio, sample_rate=16000):
 
 def get_bucket_duration(waveform, sr=16000):
     # Define non-overlapping buckets: (min (inclusive), max (exclusive), target_duration)
-    duration = waveform.size(1) / sr
+    duration = waveform.shape[1] / sr
 
     buckets = [
-        (0.0, 1.0, 1.0),      # 0.0 ≤ x < 0.5 → 0.5
+        (0.0, 1.0, 1.0),      # 0.0 ≤ x < 0.1 → 0.5
         (1.0, 1.5, 1.5),      # 0.5 ≤ x < 1.0 → 1.0
         (1.5, 2.0, 2),      # 1.0 ≤ x < 1.5 → 1.5
         (2.0, 2.5, 2.5),      # 2.0 ≤ x < 2.5 → 2.5
@@ -133,6 +147,10 @@ def get_bucket_duration(waveform, sr=16000):
         (7.5, 8.0, 8),      # 7.5 ≤ x < 8.0 → 8.0
         (8.0, 8.5, 8.5),      # 8.0 ≤ x < 8.5 → 8.5
         (8.5, 9.0, 9),      # 8.5 ≤ x < 9.0 → 9.0
+        (9.0, 9.5, 9.5),      # 9.0 ≤ x < 9.5 → 9.5
+        (9.5, 10.0, 10),     # 9.5 ≤ x < 10.0 → 10.0
+        (10.0, 15.0, 15),
+        (15.0, 20.0, 20)  # 10.0 ≤ x < 10.5 → 10.5
     ]
     
     # Check buckets first
@@ -140,7 +158,7 @@ def get_bucket_duration(waveform, sr=16000):
         if min_dur <= duration < max_dur:
             return target
 
-    return 0.0
+    return 30
 
 def ctc_decoder(preds):
     decoded = []
@@ -155,3 +173,34 @@ def load_audio(path):
     audio, sr = torchaudio.load(path)
     info = torchaudio.info(path)
     return audio
+
+def remove_invalidated_audio(file_names = ['invalidated', 'other']):
+    print("Removing invalidated audio files...")
+    for file_name in file_names:
+        tsv_file = config.COMMON_VOICE_PATH / f"{file_name}.tsv"
+        if os.path.exists(tsv_file):
+            df = pd.read_csv(tsv_file, sep='\t')
+            for idx, row in df.iterrows():
+                audio_file = config.COMMON_VOICE_PATH / 'clips' / f"{row['path']}"
+                if os.path.exists(audio_file):
+                    os.remove(audio_file)
+                    print(f"Removed {audio_file}", end='\r')
+                else:
+                    print(f"File {audio_file} does not exist.", end='\r')
+
+            os.remove(tsv_file)
+            print(f"Removed {tsv_file}")
+
+
+if __name__ == "__main__":
+    # with open(os.path.join(config.OUTPUT_DIR / 'buckets', 'bucket_3.0.json'), 'r') as f:
+    #         data = json.load(f)
+
+    # for idx, item in enumerate(data):
+    #     file_name = item['file_name']
+    #     wav_file = config.WAVS_PATH / f"{file_name}.wav"
+    #     audio, sr = torchaudio.load(wav_file)
+    #     trimmed_audio = double_vad(audio)
+
+    normalize_text("Hello, world! 231 123")
+    

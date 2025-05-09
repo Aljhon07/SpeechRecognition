@@ -14,3 +14,4 @@ data/
 *.txt
 *.pth
 *.idea
+*.json

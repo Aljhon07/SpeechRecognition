@@ -3,26 +3,35 @@ import sentencepiece as spm
 import config
 
 def train(model_type='char', vocab_size=config.H_PARAMS["VOCAB_SIZE"],model_prefix = config.LANGUAGE):
-    input_file = config.OUTPUT_PATH / (f"{config.LANGUAGE}_sentences.txt"
+    input_file = config.OUTPUT_DIR / (f"{config.LANGUAGE}_sentences.txt"
                                        f"")
     print(f"Training SentencePiece model with input file: {input_file}")
-    model_path = config.OUTPUT_PATH / model_prefix
+    model_path = config.OUTPUT_DIR / model_prefix
 
     spm.SentencePieceTrainer.train(
         input=input_file,
         model_prefix=model_path,
         model_type=model_type,
         character_coverage=1.0,
-        vocab_size=vocab_size
+        vocab_size=vocab_size,
+        pad_id=0,        # <pad> = 0
+        unk_id=1,        # <unk> = 1
+        bos_id=2,        # <s> = 2
+        eos_id=3,        # </s> = 3
+        # Special token strings (must match the IDs above)
+        pad_piece="<pad>",
+        unk_piece="<unk>",
+        bos_piece="<s>",
+        eos_piece="</s>"
     )
     print(f"SentencePiece model trained successfully: {model_prefix}.model")
 
 def encode(input_text):
     try:
-        sp = spm.SentencePieceProcessor(model_file=model_file)
-        encoded = sp.encode_as_ids(input_text) # or out_type=int for IDs
-        encoded_str = sp.encode_as_pieces(input_text) # or out_type=str for pieces
-        return encoded, ' '.join(encoded_str)
+        sp = spm.SentencePieceProcessor(model_file=str(model_file))
+        encoded = sp.encode_as_ids(input_text) 
+        return encoded
+    
     except Exception as e:
         print(f"Error encoding with SentencePiece: {e}")
         return None
@@ -30,17 +39,18 @@ def encode(input_text):
 def decode(encoded_tokens):
     """Decodes tokens using a SentencePiece model."""
     try:
-        sp = spm.SentencePieceProcessor(model_file=model_file)
+        sp = spm.SentencePieceProcessor(model_file=str(model_file))
         decoded = sp.decode(encoded_tokens)
         return decoded
     except Exception as e:
         print(f"Error decoding with SentencePiece: {e}")
         return None
     
-model_file = config.OUTPUT_PATH / f"{config.LANGUAGE}.model"
+model_file = config.OUTPUT_DIR / f"{config.LANGUAGE}.model"
 
 if __name__ == "__main__":
-    encoded = encode("Hello world")
+    train()
+    test_str = "Hello world"
+    
+    encoded = encode(test_str)
     print(f"Encoded: {encoded}")
-    decoded = decode(encoded)
-    print(f"Decoded: {decoded}")
