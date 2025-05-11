@@ -41,7 +41,7 @@ class SpeechDataset(Dataset):
         spec_len = spec.shape[2]
         transcription = data['transcription']
         labels = lc.encode(transcription)
-        labels_len = len(transcription)
+        labels_len = len(labels)
 
         # waveform, sample_rate = torchaudio.load(config.COMMON_VOICE_PATH / 'wavs' / f"{file_name}.wav")
         # plot_spectrogram(spec, spec, sample_rate=sample_rate)
@@ -49,7 +49,7 @@ class SpeechDataset(Dataset):
         return spec.squeeze(0).transpose(0,1).contiguous(), torch.tensor(labels, dtype=torch.long), torch.tensor(spec_len, dtype=torch.long), torch.tensor(labels_len, dtype=torch.long), file_name
     
 class SpeechModule:
-    def __init__(self, data=None, excluded_buckets=['0.0', '1.0', '1.5', '2.0', '2.5']):
+    def __init__(self, data=None, excluded_buckets=['0.0', '1.0', '1.5', '2.0', '2.5', '30.0']):
         self.data = data
         self.bucket = BucketAudio()
         self.loaders = {}
@@ -86,8 +86,8 @@ class SpeechModule:
             }
 
             self.loaders[key] = {
-                'train': DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=self.collate_fn),
-                'val': DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=self.collate_fn)
+                'train': DataLoader(train_dataset, batch_size=config.H_PARAMS["BATCH_SIZE"], drop_last=True, shuffle=True, collate_fn=self.collate_fn),
+                'val': DataLoader(val_dataset, batch_size=config.H_PARAMS["BATCH_SIZE"], drop_last=True, shuffle=False, collate_fn=self.collate_fn)
             }
         self.get_dataset_stats()
 
@@ -105,10 +105,16 @@ class SpeechModule:
         
         overall_duration = 0
         overall_samples = 0
+        invalidated_durations = 0
+        invalidated_samples = 0
         for key, dataset in self.datasets.items():
+
             dataset_duration = dataset['train'].total_duration + dataset['val'].total_duration
             dataset_sample_size = len(dataset['train']) + len(dataset['val'])
             print(f"Dataset {key}: {dataset_sample_size} samples, {dataset_duration:.2f} hours")
+            if key in self.excluded_buckets:
+                invalidated_durations += dataset_duration
+                invalidated_samples += dataset_sample_size
             overall_duration += dataset_duration
             overall_samples += dataset_sample_size
 

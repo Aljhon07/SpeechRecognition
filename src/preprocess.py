@@ -199,7 +199,7 @@ class AudioTranscriptionTSV():
             self.preprocess_count['success'] += 1
             row_preprocessed += 1
 
-            if row_preprocessed >= 10000:
+            if row_preprocessed >= 75000:
                 break
 
         print(f"Processed {self.preprocess_count['success']} rows | Failed {self.preprocess_count['fail']} rows")
@@ -269,12 +269,15 @@ class BucketAudio():
         self.save_buckets()
 
 def preprocess():
+    # AudioTranscriptionTSV().generate_transcription_list()
     # print(f"Preprocessing transcriptions")
     # AudioTranscriptionTSV().preprocess_tsv()
     # print(f"Preprocessing audio")
     # AudioInfo().preprocess()
     # print(f"Preprocessing buckets")
-    BucketAudio().init()
+    # BucketAudio().init()
+
+    lc.train()
     
 if __name__ == '__main__':
     preprocess()

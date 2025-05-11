@@ -6,7 +6,8 @@ from pathlib import Path
 def to_wav(input_file, output_file):
     try:
         if os.path.exists(output_file):
-            print(f"File {output_file.relative_to(Path.cwd())} already exists. Skipping conversion.", end="\r")
+            # print(f"File {output_file.relative_to(Path.cwd())} already exists. Skipping conversion.", end="\r")
+            print(f"File {output_file} already exists. Skipping conversion.")
             return
 
         os.makedirs(os.path.dirname(output_file), exist_ok=True)

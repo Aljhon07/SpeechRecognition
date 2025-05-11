@@ -1,32 +1,60 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from src.neural_net.LightWeightModel import LightWeightModel as Model
+from src.models._2_Conv1D_Dense_1_BiGRU.LightWeightModel import LightWeightModel as Model
 from src.preprocess import LogMelSpectrogram
-from tools import audio
+import os
+from tools import audio, utils, language_corpus as lc
 import torchaudio
 import torch.nn.functional as F
-class InferenceModel(nn.Module):
-    def __init__(self, model_path=None, device=None):
-        super(InferenceModel, self).__init__()
-        self.device = device
-        self.model = Model()
+import config
+import uuid
 
-        if model_path:
-            self.load_model(model_path)
-        self.model.eval()
+from tools.utils import plot_spectrogram, plot_waveforms
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = Model()
+checkpoint_path = config.OUTPUT_DIR / 'checkpoints' / 'checkpoint_epoch_25_val_loss_2.2796.pth'
+
+# Load checkpoint once
+checkpoint = torch.load(checkpoint_path, map_location=device)
+model.load_state_dict(checkpoint['model_state_dict']) 
+model.eval()
+model.to(device)
+
+log_mel = LogMelSpectrogram()
+
+def inference(file_path):
+    print(f"Loading audio file: {file_path}")
+    print(uuid.uuid4())
+    id = uuid.uuid4().hex
+    converted_file = audio.to_wav(file_path,  config.UPLOAD_DIR / f"{id}.wav")
+
+    if converted_file is None:
+        print(f"Error converting audio file: {converted_file}")
+        return None
     
-    def load_model(self, model_path):
-        checkpoint = torch.load(model_path, map_location=self.device)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
+    waveform, sample_rate = torchaudio.load(converted_file)
+    if sample_rate != 16000:
+        waveform = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=16000)(waveform)
+        
+    spectrogram = log_mel(waveform).to(device)
 
-    def forward(self, audio_path):
-        waveform, sample_rate = torchaudio.load(audio_path)
-        x = LogMelSpectrogram()(waveform)
-        x = x.transpose(1, 2).contiguous()
-        x = self.model(x)
-        x = F.log_softmax(x, dim=-1)
-        x = x.argmax(dim=-1)
-        return x
+    os.remove(file_path)
+    os.remove(converted_file)
+    with torch.no_grad():
+        output, hidden = model(spectrogram)
+        output = F.log_softmax(output, dim=-1)
+        print(f"Output shape: {output.shape}")
+        predicted_ids = torch.argmax(output, dim=-1).transpose(0, 1)
+        print(f"Predicted IDs shape: {predicted_ids.shape}")
+        prediction = utils.ctc_decoder(predicted_ids.tolist())
+        
+        print(prediction)
+        decoded_pred = lc.decode(prediction)
+        return decoded_pred
 
-
+if __name__ == '__main__':
+    # path = config.COMMON_VOICE_PATH / 'clips' / 'common_voice_en_16759015.mp3'
+    path = config.OUTPUT_DIR / 'a.wav'
+    result = inference(path)
+    print(f"Decoded prediction: {result}")

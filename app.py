@@ -2,12 +2,11 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS  # Allow requests from your mobile app
 import os
 from datetime import datetime
-import torch
-import torchaudio
 from tools import audio
+from src.inference import inference
+import config
 
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(config.UPLOAD_DIR, exist_ok=True)
 app = Flask(__name__)
 CORS(app)
 
@@ -28,15 +27,17 @@ def transcibe():
 
     try:
         file_name = datetime.now().strftime('%I_%M_%S_%p')
-        save_path = os.path.join(UPLOAD_FOLDER, file_name+'.m4a')
+        save_path = os.path.join(config.UPLOAD_DIR, file_name+'.m4a')
         audio_file.save(save_path)
-        audio.to_wav(save_path, save_path.replace('.m4a', '.wav'))        
+        audio_file = audio.to_wav(save_path, save_path.replace('.m4a', '.wav'))        
         os.remove(save_path)
+        transcript = inference(audio_file)
+        print(f"Transcription result: {transcript}")
+
         
-        return jsonify({'transcript': "Lorem Ipsum"}), 200
+        return jsonify({'transcript': transcript}), 200
 
     except Exception as e:
-        raise e
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
