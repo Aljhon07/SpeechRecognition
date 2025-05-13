@@ -10,6 +10,8 @@ WAVS_PATH = COMMON_VOICE_PATH / "wavs"
 LOG_DIR = BASE_DIR / "logs"
 CHECKPOINT_DIR = OUTPUT_DIR / "checkpoints"
 UPLOAD_DIR = BASE_DIR / "uploads"
+SRC_DIR = BASE_DIR / "src"
+MODEL_DIR = SRC_DIR / "models"
 
 AUDIO_PARAMS = {
     "SAMPLE_RATE": 16000,
@@ -20,7 +22,7 @@ AUDIO_PARAMS = {
 H_PARAMS = {
     "BASE_LR": 0.001,
     "TOTAL_EPOCH": 50,
-    "VOCAB_SIZE": 1500,
+    "VOCAB_SIZE": 5000,
     "N_FEATS": 80,
     "VERBOSE": False,
     "BATCH_SIZE": 32

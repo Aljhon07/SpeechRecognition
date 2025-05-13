@@ -10,6 +10,9 @@ from tools import audio
 from tools.utils import double_vad, rms_normalize, normalize_text, get_bucket_duration, plot_spectrogram, plot_waveforms, mean_norm
 import pandas as pd
 import json
+from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor
+import threading
 
 class LogMelSpectrogram(nn.Module):
     def __init__(self, n_fft=400, hop_length=160, win_length=400, n_mels=80, sr=16000):
@@ -28,9 +31,6 @@ class LogMelSpectrogram(nn.Module):
         )
     def forward(self, x):
         x = rms_normalize(x)
-        if x is None:
-            return None
-        
         spec = self.mel_spectrogram(x)
         spec = np.log10(spec + 1e-8)
         spec = mean_norm(spec)
@@ -54,13 +54,14 @@ class AudioInfo():
         }
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
-
+    
     def preprocess(self):
         if not os.path.exists(self.tsv_file):
             raise FileNotFoundError(f"{self.tsv_file} does not exist")
 
         df = pd.read_csv(self.tsv_file, sep='\t')
         total_rows = len(df)
+        rows_to_drop = []
         for idx, rows in df.iterrows():
             current_row = idx + 1  
             print(f"Processing audio {current_row}/{total_rows}", end='\r')
@@ -70,12 +71,11 @@ class AudioInfo():
             loaded = self.load_audio(audio_file, file_name)
             if not loaded:
                 self.processed_files['fail'] += 1
-                for key in self.metadata.keys():
-                    self.metadata[key].append(0)
+                rows_to_drop.append(idx)
                 continue
 
             self.processed_files['success'] += 1
-            spec, orig_dur, trimmed_duration, bucket, num_frames = loaded
+            orig_dur, trimmed_duration, bucket, num_frames = loaded
             self.metadata['durations'].append(trimmed_duration)
             self.metadata['bucket_duration'].append(bucket)
             self.metadata['num_frames'].append(num_frames) 
@@ -108,16 +108,14 @@ class AudioInfo():
         # trimmed_duration = trimmed_waveform.shape[1] / self.sr
         bucket = get_bucket_duration(waveform)
     
-        spec = self.log_mel_spec(waveform)
-        if spec is None:
+        rms = rms_normalize(waveform)
+        if rms is None:
             return False
         
-        torch.save(spec, self.output_dir / f"{file_name}.pt")
-        return spec, orig_duration, orig_duration, bucket, info.num_frames
+        return orig_duration, orig_duration, bucket, info.num_frames
 
 class AudioTranscriptionTSV():
-    def __init__(self, valid_files = ['clean', 'train', 'dev', 'test']):
-        self.valid_files = valid_files
+    def __init__(self ):
         self.save_file = config.OUTPUT_DIR / f'{config.LANGUAGE}.tsv'
         self.data = {
             'file_name': [],
@@ -125,7 +123,11 @@ class AudioTranscriptionTSV():
         }
         self.preprocess_count = {
             'success': 0,
-            'fail': 0
+            'fail': 0,
+            'missing': 0,
+            'converted': 0,
+            'error': 0,
+            'skip': 0,
         }
         if not os.path.exists(config.OUTPUT_DIR):
             os.makedirs(config.OUTPUT_DIR)
@@ -138,12 +140,9 @@ class AudioTranscriptionTSV():
             df = pd.DataFrame(columns=columns)
             df.to_csv(self.save_file, sep='\t',index=False)
 
-    def preprocess_tsv(self):
-        for file in self.valid_files:
-            file_path = config.COMMON_VOICE_PATH / f"{file}.tsv"
-            if os.path.exists(file_path):
-                self.load_file(file_path)
-
+    def preprocess_tsv(self, file_name = 'clean'):
+        file_path = config.COMMON_VOICE_PATH / f"{file_name}.tsv"
+        self.load_file(file_path)
 
         self.save_tsv()
         print(f"Saved TSV file to {self.save_file} | Success: {self.preprocess_count['success']} | Fail: {self.preprocess_count['fail']}")
@@ -164,45 +163,72 @@ class AudioTranscriptionTSV():
 
     def load_file(self, tsv_file):
         df = pd.read_csv(tsv_file, sep='\t', low_memory=False)
-        row_preprocessed = 0
         total_rows = len(df)
+        progress = tqdm(total=total_rows, desc="Processing files")
 
+        
+        if not df['path'].duplicated().any():
+            tqdm.write("All paths are unique!")
+        else:
+            raise ValueError("Duplicate paths found in the TSV file.")
+        
         for idx, rows in df.iterrows():
-            self.preprocess_count['fail'] += 1
             file_name = rows['path'].replace('.mp3', '')
-            transcription = rows['sentence']
-            print(f"Processing row {idx + 1}/{total_rows}", end='\r')
-
-            if not isinstance(transcription, str):
-                df.drop(idx)
-                print(f"Skipping file {file_name} due to invalid transcription.")
-                continue
-
-            if len(transcription) < 3:
-                print(f"Skipping file {file_name} due to short transcription.")
-                continue
-
-            transcription = normalize_text(transcription)
             audio_file = config.COMMON_VOICE_PATH / 'clips' / f"{file_name}.mp3"
             wav_file = config.WAVS_PATH / f"{file_name}.wav"
+            transcription = rows['sentence']
 
-            if not os.path.exists(audio_file):
-                print(f"{audio_file.relative_to(Path.cwd())} does not exist")
-                continue
-            
-            if not os.path.exists(wav_file):
-                audio.to_wav(audio_file, wav_file)
-            
-            self.data['file_name'].append(file_name)
-            self.data['transcription'].append(transcription)
-            self.preprocess_count['fail'] -= 1
-            self.preprocess_count['success'] += 1
-            row_preprocessed += 1
+            self.preprocess_count['fail'] += 1
 
-            if row_preprocessed >= 75000:
-                break
+            try:
+                if not isinstance(transcription, str):
+                    if os.path.exists(audio_file):
+                        self.preprocess_count['skip'] += 1
+                    continue
 
-        print(f"Processed {self.preprocess_count['success']} rows | Failed {self.preprocess_count['fail']} rows")
+                if len(transcription) == 0:
+                    if os.path.exists(audio_file):
+                        self.preprocess_count['skip'] += 1
+                    continue
+
+                transcription = normalize_text(transcription)
+
+                if os.path.exists(wav_file):
+                    if os.path.exists(audio_file):
+                        # os.remove(audio_file)
+                        pass
+                    self.preprocess_count['skip'] += 1
+
+                elif os.path.exists(audio_file):
+                    output = audio.to_wav(audio_file, wav_file)
+                    if output is None or not os.path.exists(wav_file):
+                        self.preprocess_count['error'] += 1
+                        continue
+                    self.preprocess_count['converted'] += 1
+                else:
+                    self.preprocess_count['missing'] += 1
+                    continue
+
+                self.data['file_name'].append(file_name)
+                self.data['transcription'].append(transcription)
+                self.preprocess_count['fail'] -= 1
+                self.preprocess_count['success'] += 1
+
+            except Exception as e:
+                self.preprocess_count['error'] += 1
+                tqdm.write(f"Error processing file {file_name}: {e}")
+                
+            finally:
+                progress.set_postfix({
+                    "Success": self.preprocess_count['success'],
+                    "Fail": self.preprocess_count['fail'],
+                    "Missing": self.preprocess_count['missing'],
+                    "Skip": self.preprocess_count['skip'],
+                    "Converted": self.preprocess_count['converted'],
+                    "Error": self.preprocess_count['error']
+                })
+                progress.update(1)
+        tqdm.write(f"Processed {self.preprocess_count['success']} rows | Failed {self.preprocess_count['fail']} rows")
 
     def generate_transcription_list(self):
         print(f"Generating transcription list")
@@ -269,9 +295,9 @@ class BucketAudio():
         self.save_buckets()
 
 def preprocess():
-    # AudioTranscriptionTSV().generate_transcription_list()
-    # print(f"Preprocessing transcriptions")
-    # AudioTranscriptionTSV().preprocess_tsv()
+    print(f"Preprocessing transcriptions")
+    # can pass file name here
+    AudioTranscriptionTSV().preprocess_tsv()
     # print(f"Preprocessing audio")
     # AudioInfo().preprocess()
     # print(f"Preprocessing buckets")

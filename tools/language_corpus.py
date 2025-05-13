@@ -31,9 +31,12 @@ def train(model_type='char', vocab_size=config.H_PARAMS["VOCAB_SIZE"],model_pref
     )
     print(f"SentencePiece model trained successfully: {model_prefix}.model")
 
-def encode(input_text):
+
+model_file = str(config.OUTPUT_DIR / f"{config.LANGUAGE}.model")
+
+def encode(input_text, vocab_model=model_file):
     try:
-        sp = spm.SentencePieceProcessor(model_file=str(model_file))
+        sp = spm.SentencePieceProcessor(vocab_model)
         encoded = sp.encode_as_ids(input_text) 
         return encoded
     
@@ -41,17 +44,16 @@ def encode(input_text):
         print(f"Error encoding with SentencePiece: {e}")
         return None
 
-def decode(encoded_tokens):
+def decode(encoded_tokens, vocab_model=model_file):
     """Decodes tokens using a SentencePiece model."""
     try:
-        sp = spm.SentencePieceProcessor(model_file=str(model_file))
+        sp = spm.SentencePieceProcessor(vocab_model)
         decoded = sp.decode(encoded_tokens)
         return decoded
     except Exception as e:
         print(f"Error decoding with SentencePiece: {e}")
         return None
     
-model_file = config.OUTPUT_DIR / f"{config.LANGUAGE}.model"
 
 if __name__ == "__main__":
     train()

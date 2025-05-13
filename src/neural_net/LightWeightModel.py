@@ -58,12 +58,13 @@ class LightWeightModel(nn.Module):
         super(LightWeightModel, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
-        
+        out_channels = n_feats * 2
         self.cnn = nn.Sequential(
-            nn.Conv1d(n_feats, n_feats, 10, 2, padding=10//2),
+            nn.Conv1d(n_feats, n_feats, 10, 1, padding=10//2),
             ActDropNormCNN1D(n_feats, dropout, keep_shape=True),
-            nn.Conv1d(n_feats, n_feats, 5, 1, padding=5//2),
-            ActDropNormCNN1D(n_feats, dropout)
+            nn.Conv1d(n_feats, n_feats, 5, 2, padding=5//2),
+            ActDropNormCNN1D(n_feats, dropout),
+            nn.MaxPool1d(2)
         )
 
         self.dense = nn.Sequential(
@@ -85,13 +86,6 @@ class LightWeightModel(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
         self.final_fc = nn.Linear(hidden_size * 2, num_classes)
 
-    def _make_layer(self, in_channels, out_channels, blocks, dropout=None):
-        layers = []
-        for _ in range(blocks):
-            layers.append(ResidualBlock(in_channels, out_channels, dropout=dropout))
-            in_channels = out_channels
-        return nn.Sequential(*layers)
-    
     def _init_hidden(self, batch_size, device):
         n, hs = self.num_layers, self.hidden_size
         return torch.zeros(n * 2, batch_size, hs, device=device)

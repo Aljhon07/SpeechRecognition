@@ -24,6 +24,7 @@ class SpeechTrainer:
         self.scheduler = scheduler
         self.device = device
         self.check_sample = False
+        self.log_file = config.LOG_DIR / 'train_log.json'
         self.step_losses = {
             'train': [],
             'val': []
@@ -32,6 +33,10 @@ class SpeechTrainer:
             'train': [],
             'val': []
         }
+
+        if not os.path.exists(self.log_file):
+            with open(self.log_file, 'w') as f:
+                f.write(model)
 
         if not os.path.exists(config.CHECKPOINT_DIR):
             os.makedirs(config.CHECKPOINT_DIR)
@@ -77,6 +82,9 @@ class SpeechTrainer:
             self.epoch_losses['val'].append(val_loss)
 
             self.scheduler.step(val_loss)
+            with open(self.log_file, 'a') as f:
+                f.write(f"Epoch {epoch}/{num_epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+
             tqdm.write(f"Epoch {epoch}/{num_epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
             self.save_checkpoint(epoch, id=f"val_loss_{val_loss:.4f}")
 
@@ -96,6 +104,9 @@ class SpeechTrainer:
         if mode == 'val' or (step_count % 100 == 0 and step_count > 0):
             sample = output.transpose(0, 1).contiguous()
             prediction = torch.argmax(sample[0], dim=1)
+            
+            with open(self.log_file, 'a') as f:
+                f.write(f"Step {step_count} | Loss: {loss.item():.4f}\nPrediction: {prediction.tolist()} | Labels: {labels[0].tolist()}\n")
             tqdm.write(f"prediction: {ctc_decoder(prediction.tolist())} \nLabels: {labels[0].tolist()} ")
 
         return loss
@@ -128,9 +139,6 @@ class SpeechTrainer:
                 self.optimizer.step()
                 self.step_losses['train'].append(f"{loss:.4f}")
 
-                if current_step == total_step // 2:
-                    self.save_checkpoint(epoch, id=f"train_half_step_{current_step}_{loss:.4f}")
-
                 if current_step >= total_step:
                     self.save_checkpoint(epoch, id=f"train_last_step_{current_step}_{loss:.4f}")
 
@@ -162,10 +170,15 @@ class SpeechTrainer:
         return total_loss / total_step
     
     def print_grad_stats(self, model):
-        print(f"Learning Rate: {self.scheduler.get_last_lr()}")
-        for name, param in model.named_parameters():
-            if param.requires_grad is not None:
-                print(f"{name}: {param.grad.norm():.4f}")
+        with open(self.log_file, 'a') as f:
+            f.write(f"Learning Rate: {self.scheduler.get_last_lr()}\n")
+            f.write(f"Gradients:\n")
+           
+            print(f"Learning Rate: {self.scheduler.get_last_lr()}")
+            for name, param in model.named_parameters():
+                if param.requires_grad is not None:
+                    f.write(f"{name}: {param.grad.norm():.4f}\n")
+                    print(f"{name}: {param.grad.norm():.4f}")
 
     def sanity_check(self, loaders):
         for batch in loaders:
@@ -240,12 +253,16 @@ class SpeechTrainer:
 def main(resume=True):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = Model().to(device)
-    criterion = nn.CTCLoss(blank=0, zero_infinity=True)
-    optimizer = optim.AdamW(model.parameters(), lr=0.001)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3)
-
     speech_module = SpeechModule()
     loaders = speech_module.loaders
+
+    total_steps = sum([len(loader) for loader in loaders.values()])
+
+    criterion = nn.CTCLoss(blank=0, zero_infinity=True)
+    optimizer = optim.AdamW(model.parameters(), lr=0.001)
+    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.001, total_steps=config.H_PARAMS["TOTAL_EPOCH"] * len(config.BUCKETS), cycle_momentum=False)
+
+    
     
     trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device)
 

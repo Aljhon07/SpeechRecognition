@@ -15,15 +15,15 @@ import torch.nn as nn
 import torchaudio.transforms as T
 
 class SpeechDataset(Dataset):
-    def __init__(self, data, augmented=False, augmented_prob=0.3):
+    def __init__(self, data, augmented=False, augmented_prob=0.4):
         self.data = data
         self.augmented = augmented
         self.augmented_prob = augmented_prob
+        self.logmel = LogMelSpectrogram()
         self.total_duration = sum(item['duration'] for item in data) / (60 * 60)
         self.apply_mask = nn.Sequential(
-            T.TimeMasking(time_mask_param=12),
-            T.FrequencyMasking(freq_mask_param=8),
-        )
+            T.TimeMasking(time_mask_param=15),
+            T.FrequencyMasking(freq_mask_param=10)        )
         
     def __len__(self):
         return len(self.data)
@@ -36,6 +36,7 @@ class SpeechDataset(Dataset):
         spec = torch.load(spec_path)
 
         if self.augmented and random.random() < self.augmented_prob:
+            print(f"Augmenting {file_name}")
             spec = self.apply_mask(spec)
 
         spec_len = spec.shape[2]
@@ -48,8 +49,16 @@ class SpeechDataset(Dataset):
         # winsound.PlaySound(config.WAVS_PATH / f"{file_name}.wav", winsound.SND_FILENAME)
         return spec.squeeze(0).transpose(0,1).contiguous(), torch.tensor(labels, dtype=torch.long), torch.tensor(spec_len, dtype=torch.long), torch.tensor(labels_len, dtype=torch.long), file_name
     
+    def preprocess(self, audio):
+        # Apply double VAD
+        audio = double_vad(audio)
+        # Apply LogMelSpectrogram
+        
+        audio = self.logmel(audio)
+        return audio
+    
 class SpeechModule:
-    def __init__(self, data=None, excluded_buckets=['0.0', '1.0', '1.5', '2.0', '2.5', '30.0']):
+    def __init__(self, data=None, excluded_buckets=['0.0', '1.0', '1.5', '30.0']):
         self.data = data
         self.bucket = BucketAudio()
         self.loaders = {}

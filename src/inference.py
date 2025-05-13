@@ -9,11 +9,11 @@ import torchaudio
 import torch.nn.functional as F
 import config
 import uuid
-
+import winsound
 from tools.utils import plot_spectrogram, plot_waveforms
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = Model()
-checkpoint_path = config.OUTPUT_DIR / 'checkpoints' / 'checkpoint_epoch_25_val_loss_2.2796.pth'
+checkpoint_path = config.MODEL_DIR / '_2_Conv1D_Dense_1_BiGRU' / 'checkpoint_epoch_25_val_loss_2.2796.pth'
 
 # Load checkpoint once
 checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -28,7 +28,6 @@ def inference(file_path):
     print(uuid.uuid4())
     id = uuid.uuid4().hex
     converted_file = audio.to_wav(file_path,  config.UPLOAD_DIR / f"{id}.wav")
-
     if converted_file is None:
         print(f"Error converting audio file: {converted_file}")
         return None
@@ -50,7 +49,7 @@ def inference(file_path):
         prediction = utils.ctc_decoder(predicted_ids.tolist())
         
         print(prediction)
-        decoded_pred = lc.decode(prediction)
+        decoded_pred = lc.decode(prediction, str(config.MODEL_DIR / "_2_Conv1D_Dense_1_BiGRU" / f"{config.LANGUAGE}.model"))
         return decoded_pred
 
 if __name__ == '__main__':

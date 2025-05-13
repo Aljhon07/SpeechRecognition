@@ -41,7 +41,7 @@ def rms_normalize(waveform):
         print("Waveform is empty.")
         return None
     
-    if rms < 1e-5:
+    if rms < 1e-7:
         print(f"RMS is too low: {rms.item()}")
         return None
     return waveform * gain
@@ -196,11 +196,6 @@ if __name__ == "__main__":
     # with open(os.path.join(config.OUTPUT_DIR / 'buckets', 'bucket_3.0.json'), 'r') as f:
     #         data = json.load(f)
 
-    # for idx, item in enumerate(data):
-    #     file_name = item['file_name']
-    #     wav_file = config.WAVS_PATH / f"{file_name}.wav"
-    #     audio, sr = torchaudio.load(wav_file)
-    #     trimmed_audio = double_vad(audio)
-
+ 
     normalize_text("Hello, world! 231 123")
     
