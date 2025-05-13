@@ -12,6 +12,7 @@ import pandas as pd
 import json
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures
 import threading
 
 class LogMelSpectrogram(nn.Module):
@@ -29,6 +30,7 @@ class LogMelSpectrogram(nn.Module):
             hop_length=self.hop_length,
             n_mels=self.n_mels,
         )
+        self.resample = torchaudio.transforms.Resample(orig_freq=self.sr, new_freq=self.sr)
     def forward(self, x):
         x = rms_normalize(x)
         spec = self.mel_spectrogram(x)
@@ -42,16 +44,13 @@ class AudioInfo():
         self.log_mel_spec = log_mel_spec
         self.tsv_file = tsv_file
         self.output_dir = output_dir
-        self.metadata = {
-            'durations': [],
-            'bucket_duration': [],
-            'num_frames': [],
-            'orig_durations': []
-        }
         self.processed_files = {
             'success': 0,
             'fail': 0
         }
+        self.file_lock = threading.Lock()
+        self.count_lock = threading.Lock()
+
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
     
@@ -61,32 +60,49 @@ class AudioInfo():
 
         df = pd.read_csv(self.tsv_file, sep='\t')
         total_rows = len(df)
-        rows_to_drop = []
-        for idx, rows in df.iterrows():
-            current_row = idx + 1  
-            print(f"Processing audio {current_row}/{total_rows}", end='\r')
-            file_name = rows['file_name']
-            audio_file = config.WAVS_PATH / f"{file_name}.wav"
+        progress = tqdm(total=total_rows, desc="Processing files")
 
-            loaded = self.load_audio(audio_file, file_name)
-            if not loaded:
-                self.processed_files['fail'] += 1
-                rows_to_drop.append(idx)
-                continue
+        with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
+            futures = []
+            for idx, rows in df.iterrows():
+                futures.append(executor.submit(self.process_row, idx, rows))
 
-            self.processed_files['success'] += 1
-            orig_dur, trimmed_duration, bucket, num_frames = loaded
-            self.metadata['durations'].append(trimmed_duration)
-            self.metadata['bucket_duration'].append(bucket)
-            self.metadata['num_frames'].append(num_frames) 
-            self.metadata['orig_durations'].append(orig_dur)
-        print(f"Processed {self.processed_files['success']} rows | Failed {self.processed_files['fail']} rows")
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    idx, result = future.result()
+                    with self.file_lock:
+                        df.at[idx, 'orig_duration'] = result['orig_dur']
+                        df.at[idx, 'duration'] = result['trimmed_duration']
+                        df.at[idx, 'bucket_duration'] = result['bucket']
+                        df.at[idx, 'num_frames'] = result['num_frames']
+                    with self.count_lock:
+                        if result['success']:
+                            self.processed_files['success'] += 1
+                        else:
+                            self.processed_files['fail'] += 1
 
-        df['orig_duration'] = self.metadata['orig_durations']
-        df['duration'] = self.metadata['durations']
-        df['bucket_duration'] = self.metadata['bucket_duration']
-        df['num_frames'] = self.metadata['num_frames']
-        df.to_csv(self.tsv_file, sep='\t',index=False)
+                    progress.set_postfix({
+                    "Success": self.processed_files['success'],
+                    "Fail": self.processed_files['fail'],
+                })
+                    
+                    progress.update(1)
+                except Exception as e:
+                    tqdm.write(f"Error processing file: {e}")
+
+
+    def process_row(self, idx, rows):
+        file_name = rows['file_name']
+        audio_file = config.WAVS_PATH / f"{file_name}.wav"
+        metadata = self.load_audio(audio_file, file_name)
+
+        if metadata is not None:
+            orig_dur, trimmed_duration, bucket, num_frames = metadata
+
+            return idx,  {"success": True, 'orig_dur': orig_dur, 'trimmed_duration': trimmed_duration, 'bucket': bucket, 'num_frames': num_frames}
+        else:
+            return idx,  {"success": False, 'orig_dur': 0, 'trimmed_duration': 0, 'bucket': 0, 'num_frames': 0}
+
 
     def load_audio(self, audio_file, file_name):
         info = torchaudio.info(audio_file)
@@ -94,33 +110,24 @@ class AudioInfo():
 
         if waveform is None or waveform.numel() == 0:
             print(f"Skipping file {audio_file} due to invalid or empty waveform.")
-            return False
+            return None
 
         if sr != self.sr:
             waveform = torchaudio.transforms.Resample(sr, self.sr)(waveform)
-        # trimmed_waveform = double_vad(waveform)
-
-        # if trimmed_waveform is None or trimmed_waveform.shape[1] <= 0 or trimmed_waveform.numel() == 0:
-        #     print(f"Skipping trimmed audio due to invalid or empty waveform.")
-        #     return False
 
         orig_duration = info.num_frames / self.sr
-        # trimmed_duration = trimmed_waveform.shape[1] / self.sr
         bucket = get_bucket_duration(waveform)
     
         rms = rms_normalize(waveform)
         if rms is None:
-            return False
+            return None
         
         return orig_duration, orig_duration, bucket, info.num_frames
 
 class AudioTranscriptionTSV():
     def __init__(self ):
         self.save_file = config.OUTPUT_DIR / f'{config.LANGUAGE}.tsv'
-        self.data = {
-            'file_name': [],
-            'transcription': []
-        }
+        self.data = []
         self.preprocess_count = {
             'success': 0,
             'fail': 0,
@@ -128,7 +135,11 @@ class AudioTranscriptionTSV():
             'converted': 0,
             'error': 0,
             'skip': 0,
+            'warning': 0
         }
+        self.file_lock = threading.Lock()
+        self.count_lock = threading.Lock()
+
         if not os.path.exists(config.OUTPUT_DIR):
             os.makedirs(config.OUTPUT_DIR)
 
@@ -157,78 +168,102 @@ class AudioTranscriptionTSV():
     def save_tsv(self):
         print(f"Saving TSV file to {self.save_file}")
         df = pd.read_csv(self.save_file, sep='\t')
-        df['file_name'] = self.data['file_name']
-        df['transcription'] = self.data['transcription']
+
+        new_data_df = pd.DataFrame(self.data, columns=['file_name', 'transcription'])
+
+        df[['file_name', 'transcription']] = new_data_df
         df.to_csv(self.save_file, sep='\t',index=False)
 
     def load_file(self, tsv_file):
         df = pd.read_csv(tsv_file, sep='\t', low_memory=False)
         total_rows = len(df)
         progress = tqdm(total=total_rows, desc="Processing files")
-
         
         if not df['path'].duplicated().any():
             tqdm.write("All paths are unique!")
         else:
             raise ValueError("Duplicate paths found in the TSV file.")
-        
-        for idx, rows in df.iterrows():
-            file_name = rows['path'].replace('.mp3', '')
-            audio_file = config.COMMON_VOICE_PATH / 'clips' / f"{file_name}.mp3"
-            wav_file = config.WAVS_PATH / f"{file_name}.wav"
-            transcription = rows['sentence']
 
-            self.preprocess_count['fail'] += 1
+        with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
+            futures = []
+            for idx, rows in df.iterrows():
+                futures.append(executor.submit(self.process_row, idx, rows))
 
-            try:
-                if not isinstance(transcription, str):
-                    if os.path.exists(audio_file):
-                        self.preprocess_count['skip'] += 1
-                    continue
-
-                if len(transcription) == 0:
-                    if os.path.exists(audio_file):
-                        self.preprocess_count['skip'] += 1
-                    continue
-
-                transcription = normalize_text(transcription)
-
-                if os.path.exists(wav_file):
-                    if os.path.exists(audio_file):
-                        # os.remove(audio_file)
-                        pass
-                    self.preprocess_count['skip'] += 1
-
-                elif os.path.exists(audio_file):
-                    output = audio.to_wav(audio_file, wav_file)
-                    if output is None or not os.path.exists(wav_file):
-                        self.preprocess_count['error'] += 1
-                        continue
-                    self.preprocess_count['converted'] += 1
-                else:
-                    self.preprocess_count['missing'] += 1
-                    continue
-
-                self.data['file_name'].append(file_name)
-                self.data['transcription'].append(transcription)
-                self.preprocess_count['fail'] -= 1
-                self.preprocess_count['success'] += 1
-
-            except Exception as e:
-                self.preprocess_count['error'] += 1
-                tqdm.write(f"Error processing file {file_name}: {e}")
-                
-            finally:
-                progress.set_postfix({
-                    "Success": self.preprocess_count['success'],
-                    "Fail": self.preprocess_count['fail'],
-                    "Missing": self.preprocess_count['missing'],
-                    "Skip": self.preprocess_count['skip'],
-                    "Converted": self.preprocess_count['converted'],
-                    "Error": self.preprocess_count['error']
-                })
-                progress.update(1)
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    result = future.result()
+                    if result:
+                        with self.count_lock:
+                            self.preprocess_count['success'] += result['success']
+                            self.preprocess_count['fail'] += result['fail']
+                            self.preprocess_count['skip'] += result['skip']
+                            self.preprocess_count['converted'] += result['converted']
+                            self.preprocess_count['error'] += result['error']
+                            self.preprocess_count['missing'] += result['missing']
+                            self.preprocess_count['warning'] += result['warning']
+                            
+                        progress.set_postfix({
+                        "Success": self.preprocess_count['success'],
+                        "Fail": self.preprocess_count['fail'],
+                        "Missing": self.preprocess_count['missing'],
+                        "Skip": self.preprocess_count['skip'],
+                        "Converted": self.preprocess_count['converted'],
+                        "Error": self.preprocess_count['error'],
+                        "Warning": self.preprocess_count['warning']
+                    })
+                    progress.update(1)
+                except Exception as e:
+                    tqdm.write(f"Error processing file: {e}")
         tqdm.write(f"Processed {self.preprocess_count['success']} rows | Failed {self.preprocess_count['fail']} rows")
+
+    def process_row(self, idx, rows):
+        file_name = rows['path'].replace('.mp3', '')
+        audio_file = config.COMMON_VOICE_PATH / 'clips' / f"{file_name}.mp3"
+        wav_file = config.WAVS_PATH / f"{file_name}.wav"
+        transcription = rows['sentence']
+
+        local_results = {'skip': 0, 'fail': 0, 'success': 0, 'converted': 0, 'error': 0, 'missing': 0, 'warning': 0}
+        local_results['fail'] += 1
+        try:
+            if not isinstance(transcription, str):
+                if os.path.exists(audio_file):
+                    local_results['warning'] += 1
+                return local_results
+
+            if len(transcription) == 0:
+                if os.path.exists(audio_file):
+                    local_results['warning'] += 1
+                return local_results
+
+            transcription = normalize_text(transcription)
+
+            if os.path.exists(wav_file):
+                if os.path.exists(audio_file):
+                    # os.remove(audio_file)
+                    pass
+                local_results['skip'] += 1
+
+            elif os.path.exists(audio_file):
+                output = audio.to_wav(audio_file, wav_file)
+                if output is None or not os.path.exists(wav_file):
+                    local_results['error'] += 1
+                    return local_results
+                local_results['converted'] += 1
+            else:
+                local_results['missing'] += 1
+                return local_results
+            
+            with self.file_lock:
+                self.data.append((file_name, transcription))
+
+            local_results['fail'] -= 1
+            local_results['success'] += 1
+
+        except Exception as e:
+            self.preprocess_count['error'] += 1
+            tqdm.write(f"Error processing file {file_name}: {e}")
+        return local_results
+           
 
     def generate_transcription_list(self):
         print(f"Generating transcription list")
@@ -294,17 +329,16 @@ class BucketAudio():
         self.group_duration()
         self.save_buckets()
 
+
 def preprocess():
     print(f"Preprocessing transcriptions")
     # can pass file name here
-    AudioTranscriptionTSV().preprocess_tsv()
+    # AudioTranscriptionTSV().preprocess_tsv()
     # print(f"Preprocessing audio")
-    # AudioInfo().preprocess()
+    AudioInfo().preprocess()
     # print(f"Preprocessing buckets")
-    # BucketAudio().init()
+    BucketAudio().init()
 
-    lc.train()
-    
 if __name__ == '__main__':
     preprocess()
 

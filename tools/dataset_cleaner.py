@@ -78,10 +78,20 @@ def keep_unique_paths(input_tsv, output_tsv, column_name='path'):
     
     return cleaned_df
 
+def tsv_diff(tsv1, tsv2):
+    main_df = pd.read_csv(tsv1, sep='\t')
+    subset_df = pd.read_csv(tsv2, sep='\t')
+
+    filtered_df = main_df[~main_df['path'].isin(subset_df['path'])]
+
+    filtered_df.to_csv('validated_set.tsv', sep='\t', index=False)
+
 if __name__ == '__main__':
     # output_tsv = config.COMMON_VOICE_PATH / 'filtered.tsv'
     # combined_tsv( ['dev', 'test', 'train', 'validated'])
     # keep_unique_paths(config.COMMON_VOICE_PATH / 'combined.tsv', config.COMMON_VOICE_PATH / 'unique_audio.tsv')
-    keep_max_n_duplicates(config.COMMON_VOICE_PATH / 'unique_audio.tsv', config.COMMON_VOICE_PATH / 'clean.tsv', max_count=2)
-    # remove_audio_files(config.COMMON_VOICE_PATH / 'invalidated.tsv')
-
+    # keep_max_n_duplicates(config.COMMON_VOICE_PATH / 'unique_audio.tsv', config.COMMON_VOICE_PATH / 'clean.tsv', max_count=2)
+    remove_audio_files(config.COMMON_VOICE_PATH / 'validated_set.tsv')
+    # combined_tsv(['clean_1', 'clean_2'])
+    # tsv_diff(config.COMMON_VOICE_PATH / 'validated.tsv', config.COMMON_VOICE_PATH / 'clean.tsv')
+    pass

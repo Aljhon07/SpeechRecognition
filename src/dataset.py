@@ -32,11 +32,10 @@ class SpeechDataset(Dataset):
         data = self.data[idx]
 
         file_name = data['file_name']
-        spec_path = config.OUTPUT_DIR / 'spectrograms' / f"{file_name}.pt"
-        spec = torch.load(spec_path)
+        waveform, sr = torchaudio.load(config.WAVS_PATH / f"{file_name}.wav")
+        spec = self.logmel(waveform)
 
         if self.augmented and random.random() < self.augmented_prob:
-            print(f"Augmenting {file_name}")
             spec = self.apply_mask(spec)
 
         spec_len = spec.shape[2]
@@ -58,7 +57,7 @@ class SpeechDataset(Dataset):
         return audio
     
 class SpeechModule:
-    def __init__(self, data=None, excluded_buckets=['0.0', '1.0', '1.5', '30.0']):
+    def __init__(self, data=None, excluded_buckets=['0.0', '30.0']):
         self.data = data
         self.bucket = BucketAudio()
         self.loaders = {}
@@ -95,8 +94,8 @@ class SpeechModule:
             }
 
             self.loaders[key] = {
-                'train': DataLoader(train_dataset, batch_size=config.H_PARAMS["BATCH_SIZE"], drop_last=True, shuffle=True, collate_fn=self.collate_fn),
-                'val': DataLoader(val_dataset, batch_size=config.H_PARAMS["BATCH_SIZE"], drop_last=True, shuffle=False, collate_fn=self.collate_fn)
+                'train': DataLoader(train_dataset, batch_size=batch_size, drop_last=True, shuffle=True, collate_fn=self.collate_fn),
+                'val': DataLoader(val_dataset, batch_size=batch_size, drop_last=True, shuffle=False, collate_fn=self.collate_fn)
             }
         self.get_dataset_stats()
 
@@ -106,7 +105,7 @@ class SpeechModule:
         specs = pad_sequence(specs, batch_first=True)
         labels = pad_sequence(labels, batch_first=True)
 
-        return specs, labels, torch.tensor(spec_lens, dtype=torch.long), torch.tensor(label_lens, dtype=torch.long), file_name
+        return specs.transpose(1, 2), labels, torch.tensor(spec_lens, dtype=torch.long), torch.tensor(label_lens, dtype=torch.long), file_name
     
     def get_dataset_stats(self):
         if self.datasets is None:
@@ -138,10 +137,10 @@ if __name__ == '__main__':
     for batch in loaders['2.0']['train']:
         specs, labels, spec_lens, label_lens, file_name = batch
         random_idx = random.randint(0, len(specs) - 1)
-        plot_spectrogram(specs[random_idx], specs[random_idx], sample_rate=16000)
         print(f"Specs Stats: {specs[random_idx].shape} | Min: {specs[random_idx].min()} | Max: {specs[random_idx].max()} | Mean: {specs[random_idx].mean()} | Std: {specs[random_idx].std()}")
         print(f"Transcription: {lc.decode(labels[random_idx].tolist())}")
         winsound.PlaySound(config.WAVS_PATH / f"{file_name[random_idx]}.wav", winsound.SND_FILENAME)
+        plot_spectrogram(specs[random_idx], specs[random_idx], sample_rate=16000)
 
 
 

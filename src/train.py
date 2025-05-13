@@ -23,7 +23,7 @@ class SpeechTrainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.device = device
-        self.check_sample = False
+        self.check_sample = True
         self.log_file = config.LOG_DIR / 'train_log.json'
         self.step_losses = {
             'train': [],
@@ -34,18 +34,14 @@ class SpeechTrainer:
             'val': []
         }
 
-        if not os.path.exists(self.log_file):
-            with open(self.log_file, 'w') as f:
-                f.write(model)
+        if not os.path.exists(os.path.dirname(self.log_file)):
+            os.makedirs(os.path.dirname(self.log_file))
+
+        with open(self.log_file, 'w') as f:
+            f.write(str(model))
 
         if not os.path.exists(config.CHECKPOINT_DIR):
             os.makedirs(config.CHECKPOINT_DIR)
-
-    def print_memory_stats():
-        if torch.cuda.is_available():
-            print(f"Allocated: {torch.cuda.memory_allocated()/1e9:.2f} GB")
-            print(f"Cached: {torch.cuda.memory_reserved()/1e9:.2f} GB")
-            print(torch.cuda.memory_summary())
 
     def start(self, num_epochs=10, resume=False):
         print(f"Training on {self.device}")
@@ -81,7 +77,6 @@ class SpeechTrainer:
             self.epoch_losses['train'].append(train_loss)
             self.epoch_losses['val'].append(val_loss)
 
-            self.scheduler.step(val_loss)
             with open(self.log_file, 'a') as f:
                 f.write(f"Epoch {epoch}/{num_epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
 
@@ -90,7 +85,7 @@ class SpeechTrainer:
 
     def step(self, mode='train', batch=None, step_count=0):
         inputs, labels, inputs_len, labels_len, file_name = batch
-        inputs, labels = inputs.to(self.device).transpose(1, 2).contiguous(), labels.to(self.device)
+        inputs, labels = inputs.to(self.device), labels.to(self.device)
         inputs_len, labels_len = inputs_len.to(self.device), labels_len.to(self.device)
 
         bs = inputs.shape[0]
@@ -121,6 +116,9 @@ class SpeechTrainer:
 
         for loader_idx, loader in enumerate(loaders):
             for batch_idx, batch in enumerate(loader):
+                mem_used = torch.cuda.memory_allocated() / 1024**3  # Memory used in GB
+                mem_total = torch.cuda.get_device_properties(0).total_memory / 1024**3  # Total memory in GB
+
                 current_step += 1
 
                 self.optimizer.zero_grad()
@@ -131,12 +129,20 @@ class SpeechTrainer:
 
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
 
-                progress_bar.set_postfix(loss=loss, avg_loss=total_loss / current_step)
+                lr = f"{self.scheduler.get_last_lr()[0]:.6f}"
+                mem = f"{mem_used:.2f} / {mem_total:.2f} GB"
+                progress_bar.set_postfix({
+                    "LR": lr,
+                    "Loss": loss,
+                    "Avg Loss": total_loss / current_step,
+                    "Memory": mem,
+                })
                 progress_bar.update(1)
 
                 if current_step % 100 == 0:
                     self.print_grad_stats(self.model)
                 self.optimizer.step()
+                self.scheduler.step()
                 self.step_losses['train'].append(f"{loss:.4f}")
 
                 if current_step >= total_step:
@@ -174,11 +180,10 @@ class SpeechTrainer:
             f.write(f"Learning Rate: {self.scheduler.get_last_lr()}\n")
             f.write(f"Gradients:\n")
            
-            print(f"Learning Rate: {self.scheduler.get_last_lr()}")
             for name, param in model.named_parameters():
                 if param.requires_grad is not None:
                     f.write(f"{name}: {param.grad.norm():.4f}\n")
-                    print(f"{name}: {param.grad.norm():.4f}")
+                    tqdm.write(f"{name}: {param.grad.norm():.4f}")
 
     def sanity_check(self, loaders):
         for batch in loaders:
@@ -222,7 +227,7 @@ class SpeechTrainer:
             print(f"Spec Stats: {spec.shape} | Min: {spec.min()} | Max: {spec.max()} | Mean: {spec.mean()} | Std: {spec.std()}")
             print(f"Loaded Specs Stats: {inputs[random_idx].shape} | Min: {inputs[random_idx].min()} | Max: {inputs[random_idx].max()} | Mean: {inputs[random_idx].mean()} | Std: {inputs[random_idx].std()}")
 
-            plot_spectrogram( inputs[random_idx].transpose(0, 1), spec, sample_rate=sr)
+            plot_spectrogram( inputs[random_idx], spec, sample_rate=sr)
             return
 
     def save_checkpoint(self,epoch, id = random.randint(0, 10000)):
@@ -250,20 +255,19 @@ class SpeechTrainer:
         print(f"Loaded checkpoint from epoch {checkpoint['epoch']}")
         return start_epoch
     
-def main(resume=True):
+def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
     model = Model().to(device)
     speech_module = SpeechModule()
     loaders = speech_module.loaders
 
-    total_steps = sum([len(loader) for loader in loaders.values()])
-
+    total_steps = sum([len(loader['train']) for loader in loaders.values()]) * config.H_PARAMS["TOTAL_EPOCH"]
+    print(f"Total Steps: {total_steps}")
     criterion = nn.CTCLoss(blank=0, zero_infinity=True)
     optimizer = optim.AdamW(model.parameters(), lr=0.001)
-    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.001, total_steps=config.H_PARAMS["TOTAL_EPOCH"] * len(config.BUCKETS), cycle_momentum=False)
+    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.001, total_steps=total_steps, div_factor=25, pct_start=0.3, cycle_momentum=False)
 
-    
-    
     trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device)
 
     trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=False)

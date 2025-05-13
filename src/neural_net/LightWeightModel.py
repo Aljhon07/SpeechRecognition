@@ -19,32 +19,6 @@ class ActDropNormCNN1D(nn.Module):
         else:
             return x
 
-
-class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=5, stride=1, dropout=None):
-        super(ResidualBlock, self).__init__()
-        self.conv1 = nn.Conv1d(in_channels, out_channels, kernel_size, stride, padding=kernel_size//2)
-        self.norm1 = ActDropNormCNN1D(out_channels, dropout, keep_shape=True)
-
-        self.conv2 = nn.Conv1d(out_channels, out_channels, kernel_size, stride, padding=kernel_size//2)
-        self.norm2 = ActDropNormCNN1D(out_channels, dropout, keep_shape=True)
-
-        self.skip_connection = None
-
-        if in_channels != out_channels:
-            self.skip_connection = nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=stride, padding=0)
-
-    def forward(self, x):
-        identity = x
-        out = self.conv1(x)
-        out = self.conv2(out)
-        
-        if self.skip_connection is not None:
-            identity = self.skip_connection(identity)
-
-        out += identity
-        return out
-
 class LightWeightModel(nn.Module):
     hyper_parameters = {
         "num_classes": 29,
@@ -58,13 +32,13 @@ class LightWeightModel(nn.Module):
         super(LightWeightModel, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
-        out_channels = n_feats * 2
         self.cnn = nn.Sequential(
-            nn.Conv1d(n_feats, n_feats, 10, 1, padding=10//2),
+            nn.Conv1d(n_feats, n_feats, 12, 2, padding=10//2),
             ActDropNormCNN1D(n_feats, dropout, keep_shape=True),
-            nn.Conv1d(n_feats, n_feats, 5, 2, padding=5//2),
+            nn.Conv1d(n_feats, 126, 5, 1, padding=5//2),
+            ActDropNormCNN1D(126, dropout, keep_shape=True),
+            nn.Conv1d(126, n_feats, 3, 1, padding=3//2),
             ActDropNormCNN1D(n_feats, dropout),
-            nn.MaxPool1d(2)
         )
 
         self.dense = nn.Sequential(
@@ -78,7 +52,7 @@ class LightWeightModel(nn.Module):
             nn.Dropout(dropout),
         )
         
-        self.bigru = nn.GRU(input_size=128, hidden_size=hidden_size,
+        self.bigru = nn.GRU(input_size=128, hidden_size=512,
                             num_layers=num_layers, dropout=0.0,
                             bidirectional=True)
         
@@ -91,7 +65,7 @@ class LightWeightModel(nn.Module):
         return torch.zeros(n * 2, batch_size, hs, device=device)
 
     def forward(self, x, hidden=None):
-        x = x.squeeze(1)  # batch, feature, time
+        x = x.squeeze(1).contiguous()  # batch, feature, time
         if verbose:
             print(f"Input Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
         x = self.cnn(x) # batch, time, feature
