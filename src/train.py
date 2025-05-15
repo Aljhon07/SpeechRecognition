@@ -23,7 +23,7 @@ class SpeechTrainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.device = device
-        self.check_sample = True
+        self.check_sample = False
         self.log_file = config.LOG_DIR / 'train_log.json'
         self.step_losses = {
             'train': [],
@@ -39,6 +39,7 @@ class SpeechTrainer:
 
         with open(self.log_file, 'w') as f:
             f.write(str(model))
+            f.write(f"Model Parameters: {sum(p.numel() for p in model.parameters())}\n")
 
         if not os.path.exists(config.CHECKPOINT_DIR):
             os.makedirs(config.CHECKPOINT_DIR)
@@ -49,7 +50,7 @@ class SpeechTrainer:
 
         if resume:
             print("Resuming from checkpoint...")
-            start_epoch = self.load_checkpoint(config.CHECKPOINT_DIR / 'checkpoint.pth')
+            start_epoch = self.load_checkpoint(config.CHECKPOINT_DIR / 'checkpoint_epoch_11_val_2.1816.pth')
 
         for epoch in range(start_epoch, num_epochs):
             epoch += 1
@@ -59,8 +60,8 @@ class SpeechTrainer:
             random_bucket = random.choice(buckets)
             print(f"Random Bucket: {random_bucket}")
             for bucket in buckets:
-                train_loaders.append(self.loaders[bucket]['train'])
-                val_loaders.append(self.loaders[bucket]['val'])
+                train_loaders.append((bucket, self.loaders[bucket]['train']))
+                val_loaders.append((bucket, self.loaders[bucket]['val']))
 
                 if self.check_sample:
                     print(self.loaders[random_bucket])
@@ -69,7 +70,9 @@ class SpeechTrainer:
                     self.check_sample = False
 
             train_loss = self.train(train_loaders, epoch)
+            self.save_checkpoint(epoch, id=f"train_{train_loss:.4f}")
             val_loss = self.validate(val_loaders, epoch)
+            self.save_checkpoint(epoch, id=f"val_{val_loss:.4f}")
 
             if val_loss <= 0.5:
                 self.save_checkpoint(epoch, id=f"target_reached_{val_loss:.2f}")
@@ -79,9 +82,7 @@ class SpeechTrainer:
 
             with open(self.log_file, 'a') as f:
                 f.write(f"Epoch {epoch}/{num_epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
-
             tqdm.write(f"Epoch {epoch}/{num_epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
-            self.save_checkpoint(epoch, id=f"val_loss_{val_loss:.4f}")
 
     def step(self, mode='train', batch=None, step_count=0):
         inputs, labels, inputs_len, labels_len, file_name = batch
@@ -99,6 +100,7 @@ class SpeechTrainer:
         if mode == 'val' or (step_count % 100 == 0 and step_count > 0):
             sample = output.transpose(0, 1).contiguous()
             prediction = torch.argmax(sample[0], dim=1)
+            print(f"Decoded Label: {lc.decode(labels[0].tolist())}")
             
             with open(self.log_file, 'a') as f:
                 f.write(f"Step {step_count} | Loss: {loss.item():.4f}\nPrediction: {prediction.tolist()} | Labels: {labels[0].tolist()}\n")
@@ -108,17 +110,14 @@ class SpeechTrainer:
 
     def train(self, loaders, epoch):
         self.model.train()
-        total_step = sum([len(loader) for loader in loaders])
-        total_loss = 1e-9
+
+        total_step = sum([len(loader) for key, loader in loaders])
+        total_loss = 0
         current_step = 0
 
         progress_bar = tqdm(total=total_step, desc=f"Epoch {epoch}/{config.H_PARAMS['TOTAL_EPOCH']}", dynamic_ncols=True, leave=True)
-
-        for loader_idx, loader in enumerate(loaders):
+        for loader_idx, (key, loader) in enumerate(loaders):
             for batch_idx, batch in enumerate(loader):
-                mem_used = torch.cuda.memory_allocated() / 1024**3  # Memory used in GB
-                mem_total = torch.cuda.get_device_properties(0).total_memory / 1024**3  # Total memory in GB
-
                 current_step += 1
 
                 self.optimizer.zero_grad()
@@ -129,44 +128,48 @@ class SpeechTrainer:
 
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
 
-                lr = f"{self.scheduler.get_last_lr()[0]:.6f}"
-                mem = f"{mem_used:.2f} / {mem_total:.2f} GB"
+                lr = f"{self.scheduler.get_last_lr()[0]:.7f}".rstrip('0')
+                loader_progress = f"{loader_idx}/{len(loaders)}"
                 progress_bar.set_postfix({
                     "LR": lr,
+                    "Key": key,
+                    "Loader": loader_progress,
                     "Loss": loss,
-                    "Avg Loss": total_loss / current_step,
-                    "Memory": mem,
+                    "Avg Loss": total_loss / current_step
                 })
                 progress_bar.update(1)
 
                 if current_step % 100 == 0:
                     self.print_grad_stats(self.model)
+
                 self.optimizer.step()
                 self.scheduler.step()
                 self.step_losses['train'].append(f"{loss:.4f}")
-
-                if current_step >= total_step:
-                    self.save_checkpoint(epoch, id=f"train_last_step_{current_step}_{loss:.4f}")
 
         progress_bar.close()
         return total_loss / total_step
 
     def validate(self, loaders, epoch):
         self.model.eval()
-        total_loss = 1e-9
-        total_step = sum([len(loader) for loader in loaders])
+        total_loss = 0
+        total_step = sum([len(loader) for key, loader in loaders])
         current_step = 0
 
         progress_bar = tqdm(total=total_step, desc=f"Epoch {epoch} [Validation]", dynamic_ncols=True)
 
-        for loader in loaders:
+        for (key, loader) in loaders:
             with torch.no_grad():
                 for idx, batch in enumerate(loader):
                     current_step += 1
                     loss = self.step(mode='val', batch=batch)
                     total_loss += loss.item()
                     self.step_losses['val'].append(f"{loss.item():.4f}")
-                    progress_bar.set_postfix(loss=loss.item(), avg_loss=total_loss / current_step)
+                    progress_bar.set_postfix({
+                        "Key": key,
+                        "Loader": f"{idx}/{len(loader)}",
+                        "Loss": loss.item(),
+                        "Avg Loss": total_loss / current_step,
+                    })
                     progress_bar.update(1)
 
                     if loss.item() <= 0.5 and not os.path.exists(config.CHECKPOINT_DIR / f"val_target_reached.pth"):
@@ -177,7 +180,7 @@ class SpeechTrainer:
     
     def print_grad_stats(self, model):
         with open(self.log_file, 'a') as f:
-            f.write(f"Learning Rate: {self.scheduler.get_last_lr()}\n")
+            f.write(f"Learning Rate: {self.scheduler.get_last_lr()[0]}\n")
             f.write(f"Gradients:\n")
            
             for name, param in model.named_parameters():
@@ -217,12 +220,13 @@ class SpeechTrainer:
             print(f"Input: {inputs[random_idx]}")
             print(f"Label: {labels[random_idx]}")
             print(f"Decoded Label: {lc.decode(labels[random_idx].tolist())}")
+
             audio_path = config.WAVS_PATH / f'{file_name[random_idx]}.wav'
             if not audio_path.exists():
                 raise FileNotFoundError(f"Audio file {audio_path} does not exist.")
             audio, sr = torchaudio.load(audio_path)       
-
             spec = LogMelSpectrogram()(audio)
+
             winsound.PlaySound(audio_path, winsound.SND_FILENAME)
             print(f"Spec Stats: {spec.shape} | Min: {spec.min()} | Max: {spec.max()} | Mean: {spec.mean()} | Std: {spec.std()}")
             print(f"Loaded Specs Stats: {inputs[random_idx].shape} | Min: {inputs[random_idx].min()} | Max: {inputs[random_idx].max()} | Mean: {inputs[random_idx].mean()} | Std: {inputs[random_idx].std()}")
@@ -251,7 +255,7 @@ class SpeechTrainer:
         self.epoch_losses = checkpoint.get('epoch_losses', {'train': [], 'val': []})
         self.step_losses = checkpoint.get('step_losses', {'train': [], 'val': []})
         
-        start_epoch = checkpoint['epoch']  # Resume from next epoch
+        start_epoch = checkpoint['epoch'] 
         print(f"Loaded checkpoint from epoch {checkpoint['epoch']}")
         return start_epoch
     
@@ -264,13 +268,14 @@ def main():
 
     total_steps = sum([len(loader['train']) for loader in loaders.values()]) * config.H_PARAMS["TOTAL_EPOCH"]
     print(f"Total Steps: {total_steps}")
+ 
     criterion = nn.CTCLoss(blank=0, zero_infinity=True)
-    optimizer = optim.AdamW(model.parameters(), lr=0.001)
-    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.001, total_steps=total_steps, div_factor=25, pct_start=0.3, cycle_momentum=False)
+    optimizer = optim.AdamW(model.parameters(), lr=config.H_PARAMS["BASE_LR"])
+    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=10, final_div_factor=50, pct_start=0.3, cycle_momentum=False)
 
     trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device)
-
-    trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=False)
+    
+    trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=True)
     
 if __name__ == "__main__":
     main()

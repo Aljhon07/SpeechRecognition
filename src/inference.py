@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from src.models._2_Conv1D_Dense_1_BiGRU.LightWeightModel import LightWeightModel as Model
+from src.models.OneCycle.LightWeightModel import LightWeightModel as Model
 from src.preprocess import LogMelSpectrogram
 import os
 from tools import audio, utils, language_corpus as lc
@@ -10,10 +10,11 @@ import torch.nn.functional as F
 import config
 import uuid
 import winsound
-from tools.utils import plot_spectrogram, plot_waveforms
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = Model()
-checkpoint_path = config.MODEL_DIR / '_2_Conv1D_Dense_1_BiGRU' / 'checkpoint_epoch_25_val_loss_2.2796.pth'
+LOCAL_MODEL_PATH = config.MODEL_DIR / 'OneCycle'
+checkpoint_path = LOCAL_MODEL_PATH / 'checkpoint_epoch_11_val_2.1816.pth'
 
 # Load checkpoint once
 checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -24,8 +25,9 @@ model.to(device)
 log_mel = LogMelSpectrogram()
 
 def inference(file_path):
+    print(f"Using Model: {checkpoint_path}")
     print(f"Loading audio file: {file_path}")
-    print(uuid.uuid4())
+
     id = uuid.uuid4().hex
     converted_file = audio.to_wav(file_path,  config.UPLOAD_DIR / f"{id}.wav")
     if converted_file is None:
@@ -46,10 +48,9 @@ def inference(file_path):
         print(f"Output shape: {output.shape}")
         predicted_ids = torch.argmax(output, dim=-1).transpose(0, 1)
         print(f"Predicted IDs shape: {predicted_ids.shape}")
-        prediction = utils.ctc_decoder(predicted_ids.tolist())
-        
-        print(prediction)
-        decoded_pred = lc.decode(prediction, str(config.MODEL_DIR / "_2_Conv1D_Dense_1_BiGRU" / f"{config.LANGUAGE}.model"))
+        raw_prediction = utils.ctc_decoder(predicted_ids.tolist())
+        print(raw_prediction)
+        decoded_pred = lc.decode(raw_prediction, str(LOCAL_MODEL_PATH / f"{config.LANGUAGE}.model"))
         return decoded_pred
 
 if __name__ == '__main__':

@@ -35,9 +35,9 @@ class LightWeightModel(nn.Module):
         self.cnn = nn.Sequential(
             nn.Conv1d(n_feats, n_feats, 12, 2, padding=10//2),
             ActDropNormCNN1D(n_feats, dropout, keep_shape=True),
-            nn.Conv1d(n_feats, 126, 5, 1, padding=5//2),
-            ActDropNormCNN1D(126, dropout, keep_shape=True),
-            nn.Conv1d(126, n_feats, 3, 1, padding=3//2),
+            nn.Conv1d(n_feats, n_feats, 5, 1, padding=5//2),
+            ActDropNormCNN1D(n_feats, dropout, keep_shape=True),
+            nn.Conv1d(n_feats, n_feats, 3, 1, padding=3//2),
             ActDropNormCNN1D(n_feats, dropout),
         )
 

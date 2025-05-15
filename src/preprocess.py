@@ -7,7 +7,7 @@ import numpy as np
 from tools import language_corpus as lc
 import config
 from tools import audio
-from tools.utils import double_vad, rms_normalize, normalize_text, get_bucket_duration, plot_spectrogram, plot_waveforms, mean_norm
+from tools.utils import rms_normalize, normalize_text, get_bucket_duration, mean_norm
 import pandas as pd
 import json
 from tqdm import tqdm
@@ -284,7 +284,9 @@ class BucketAudio():
         self.output_dir = config.OUTPUT_DIR / 'buckets'
         self.tsv_file = config.OUTPUT_DIR / f'{config.LANGUAGE}.tsv'
         self.df = pd.read_csv(self.tsv_file, sep='\t')
-        self.buckets = {}
+        self.buckets = {
+
+        }
 
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
@@ -293,7 +295,22 @@ class BucketAudio():
         df = pd.read_csv(self.tsv_file, sep='\t')
         for idx, rows in df.iterrows():
             
-            bucket_duration = rows['bucket_duration']
+            bucket_duration = float( rows['bucket_duration'])
+            if bucket_duration >= 30.0:
+                bucket_duration = 30.0
+            elif bucket_duration <= 0.0:
+                bucket_duration = 0.0
+            elif bucket_duration <= 3.0:
+                bucket_duration = 3.0
+            elif bucket_duration <= 8.0:
+                bucket_duration = 8.0
+            elif bucket_duration <= 13.0:
+                bucket_duration = 13.0
+            elif bucket_duration <= 18.0:
+                bucket_duration = 18.0
+            elif bucket_duration <= 25.0:
+                bucket_duration = 25.0
+            
             
             if bucket_duration not in self.buckets:
                 self.buckets[bucket_duration] = []
@@ -335,7 +352,7 @@ def preprocess():
     # can pass file name here
     # AudioTranscriptionTSV().preprocess_tsv()
     # print(f"Preprocessing audio")
-    AudioInfo().preprocess()
+    # AudioInfo().preprocess()
     # print(f"Preprocessing buckets")
     BucketAudio().init()
 

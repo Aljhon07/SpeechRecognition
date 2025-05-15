@@ -45,7 +45,7 @@ def encode(input_text, vocab_model=model_file):
         return None
 
 def decode(encoded_tokens, vocab_model=model_file):
-    """Decodes tokens using a SentencePiece model."""
+    print(f"Using vocab model: {vocab_model}")
     try:
         sp = spm.SentencePieceProcessor(vocab_model)
         decoded = sp.decode(encoded_tokens)

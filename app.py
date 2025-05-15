@@ -16,6 +16,7 @@ def index():
 
 @app.route('/transcribe', methods=['POST'])
 def transcibe():
+    
     print(f"Received request: {request.files}")
     if 'audio' not in request.files:
         return jsonify({'error': 'No audio file provided'}), 400
@@ -31,6 +32,7 @@ def transcibe():
         audio_file.save(save_path)
         audio_file = audio.to_wav(save_path, save_path.replace('.m4a', '.wav'))        
         os.remove(save_path)
+
         transcript = inference(audio_file)
         print(f"Transcription result: {transcript}")
 

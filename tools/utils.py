@@ -17,18 +17,10 @@ def normalize_text(input):
     # text = input.lower()
     # text = text.replace('"', ' ')
     # text = re.sub(remove_chars, '', text)
-
-    
     text = re.sub(r'[^a-zA-Z0-9\s]', '', input)
     text = text.lower()
 
     return text
-
-def min_max_normalize(spectrogram):
-    spectrogram_min = spectrogram.min()
-    spectrogram_max = spectrogram.max()
-    normalized_spec = (spectrogram - spectrogram_min) / (spectrogram_max - spectrogram_min + 1e-6)
-    return normalized_spec
 
 def mean_norm(spectrogram):
     spectrogram = (spectrogram - spectrogram.mean()) / (spectrogram.std() + 1e-6)
@@ -124,7 +116,6 @@ def double_vad(audio, sample_rate=16000):
     
     return final_audio
 
-
 def get_bucket_duration(waveform, sr=16000):
     # Define non-overlapping buckets: (min (inclusive), max (exclusive), target_duration)
     duration = waveform.shape[1] / sr
@@ -168,29 +159,6 @@ def ctc_decoder(preds):
             decoded.append(char_idx)
         prev_char = char_idx
     return decoded
-
-def load_audio(path):
-    audio, sr = torchaudio.load(path)
-    info = torchaudio.info(path)
-    return audio
-
-def remove_invalidated_audio(file_names = ['invalidated', 'other']):
-    print("Removing invalidated audio files...")
-    for file_name in file_names:
-        tsv_file = config.COMMON_VOICE_PATH / f"{file_name}.tsv"
-        if os.path.exists(tsv_file):
-            df = pd.read_csv(tsv_file, sep='\t')
-            for idx, row in df.iterrows():
-                audio_file = config.COMMON_VOICE_PATH / 'clips' / f"{row['path']}"
-                if os.path.exists(audio_file):
-                    os.remove(audio_file)
-                    print(f"Removed {audio_file}", end='\r')
-                else:
-                    print(f"File {audio_file} does not exist.", end='\r')
-
-            os.remove(tsv_file)
-            print(f"Removed {tsv_file}")
-
 
 if __name__ == "__main__":
     # with open(os.path.join(config.OUTPUT_DIR / 'buckets', 'bucket_3.0.json'), 'r') as f:

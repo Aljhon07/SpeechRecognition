@@ -43,16 +43,10 @@ class SpeechDataset(Dataset):
         labels = lc.encode(transcription)
         labels_len = len(labels)
 
-        # waveform, sample_rate = torchaudio.load(config.COMMON_VOICE_PATH / 'wavs' / f"{file_name}.wav")
-        # plot_spectrogram(spec, spec, sample_rate=sample_rate)
-        # winsound.PlaySound(config.WAVS_PATH / f"{file_name}.wav", winsound.SND_FILENAME)
         return spec.squeeze(0).transpose(0,1).contiguous(), torch.tensor(labels, dtype=torch.long), torch.tensor(spec_len, dtype=torch.long), torch.tensor(labels_len, dtype=torch.long), file_name
     
     def preprocess(self, audio):
-        # Apply double VAD
         audio = double_vad(audio)
-        # Apply LogMelSpectrogram
-        
         audio = self.logmel(audio)
         return audio
     
@@ -98,6 +92,7 @@ class SpeechModule:
                 'val': DataLoader(val_dataset, batch_size=batch_size, drop_last=True, shuffle=False, collate_fn=self.collate_fn)
             }
         self.get_dataset_stats()
+        return self.loaders
 
     def collate_fn(self, batch):
         specs, labels, spec_lens, label_lens, file_name = zip(*batch)
@@ -132,15 +127,16 @@ class SpeechModule:
 if __name__ == '__main__':
     speech_module = SpeechModule()
 
-    
+    speech_module.create_dataloader()
+    speech_module.get_dataset_stats()
     loaders = speech_module.loaders
-    for batch in loaders['2.0']['train']:
-        specs, labels, spec_lens, label_lens, file_name = batch
-        random_idx = random.randint(0, len(specs) - 1)
-        print(f"Specs Stats: {specs[random_idx].shape} | Min: {specs[random_idx].min()} | Max: {specs[random_idx].max()} | Mean: {specs[random_idx].mean()} | Std: {specs[random_idx].std()}")
-        print(f"Transcription: {lc.decode(labels[random_idx].tolist())}")
-        winsound.PlaySound(config.WAVS_PATH / f"{file_name[random_idx]}.wav", winsound.SND_FILENAME)
-        plot_spectrogram(specs[random_idx], specs[random_idx], sample_rate=16000)
+    # for batch in loaders['2.0']['train']:
+    #     specs, labels, spec_lens, label_lens, file_name = batch
+    #     random_idx = random.randint(0, len(specs) - 1)
+    #     print(f"Specs Stats: {specs[random_idx].shape} | Min: {specs[random_idx].min()} | Max: {specs[random_idx].max()} | Mean: {specs[random_idx].mean()} | Std: {specs[random_idx].std()}")
+    #     print(f"Transcription: {lc.decode(labels[random_idx].tolist())}")
+    #     winsound.PlaySound(config.WAVS_PATH / f"{file_name[random_idx]}.wav", winsound.SND_FILENAME)
+    #     plot_spectrogram(specs[random_idx], specs[random_idx], sample_rate=16000)
 
 
 

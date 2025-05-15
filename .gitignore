@@ -12,6 +12,7 @@ data/
 *.model
 *.vocab
 *.txt
-*.pth
 *.idea
 *.json
+output/
+history/
