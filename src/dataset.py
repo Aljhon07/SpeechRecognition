@@ -6,7 +6,7 @@ import json
 import random
 import torchaudio
 import torch
-from src.preprocess import LogMelSpectrogram, plot_spectrogram
+from src.preprocess import LogMelSpectrogram
 from tools.utils import double_vad
 import winsound
 from tools import language_corpus as lc

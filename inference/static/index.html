@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Speech Recorder</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #121212;
+        color: #eee;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        padding: 1rem;
+        text-align: center;
+      }
+      button {
+        background: #1db954;
+        border: none;
+        color: white;
+        padding: 1rem 2rem;
+        font-size: 1.25rem;
+        font-weight: bold;
+        border-radius: 50px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        box-shadow: 0 4px 12px rgba(29, 185, 84, 0.6);
+        user-select: none;
+        margin-top: 1.5rem;
+        min-width: 200px;
+      }
+      button.recording {
+        background: #e0245e;
+        box-shadow: 0 4px 12px rgba(224, 36, 94, 0.6);
+      }
+      button:disabled {
+        background: #555;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+      #status {
+        margin-top: 1rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        min-height: 1.5em;
+      }
+      #transcript {
+        white-space: pre-wrap;
+        font-size: 1.1rem;
+        max-width: 600px;
+        width: 90vw;
+        min-height: 3em;
+        color: #1db954;
+        font-weight: 600;
+      }
+      #error {
+        margin-top: 0.8rem;
+        color: #ff4c61;
+        font-weight: 700;
+        min-height: 1.2em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="transcript"></div>
+    <button id="recordBtn">Start Recording 🎤</button>
+    <div id="error"></div>
+
+    <script>
+      let mediaRecorder;
+      let audioChunks = [];
+      let isRecording = false;
+
+      const recordBtn = document.getElementById("recordBtn");
+      const transcriptDiv = document.getElementById("transcript");
+      const errorDiv = document.getElementById("error");
+
+      recordBtn.onclick = async () => {
+        errorDiv.textContent = "";
+        if (!isRecording) {
+          // Start recording
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            errorDiv.textContent =
+              "Sorry, getUserMedia is not supported by your browser.";
+            return;
+          }
+
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+            });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = (e) => {
+              if (e.data.size > 0) audioChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+              const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+              await sendAudio(audioBlob);
+
+              stream.getTracks().forEach((track) => track.stop());
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+            recordBtn.textContent = "Stop Recording ⏹️";
+            recordBtn.classList.add("recording");
+            transcriptDiv.textContent = ""; // Clear old transcript on new recording
+          } catch (err) {
+            errorDiv.textContent = `Error accessing microphone: ${err.message}`;
+          }
+        } else {
+          // Stop recording
+          mediaRecorder.stop();
+          isRecording = false;
+          recordBtn.textContent = "Start Recording 🎤";
+          recordBtn.classList.remove("recording");
+        }
+      };
+
+      async function sendAudio(blob) {
+        const formData = new FormData();
+        formData.append("audio", blob, "audio.webm");
+
+        try {
+          const response = await fetch("/transcribe", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Unknown error");
+          }
+
+          const data = await response.json();
+          transcriptDiv.textContent = `${data.transcript}`;
+        } catch (err) {
+          errorDiv.textContent = `Error: ${err.message}`;
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -59,9 +59,7 @@ class SpeechRecognitionModel(nn.Module):
             nn.ReLU()
         )
         
-        self.layer1 = self._make_layer(32, 64, blocks=2, dropout=0.1)        
-        self.layer2 = self._make_layer(64, 128, blocks=2, dropout=0.3)
-        self.layer3 = self._make_layer(128, 256, blocks=2, dropout=0.3)
+        self.layer1 = self._make_layer(32, 80, blocks=2, dropout=0.1)        
         
         self.pool = nn.Sequential(
             nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
@@ -98,14 +96,6 @@ class SpeechRecognitionModel(nn.Module):
         x = self.layer1(x)
         if verbose:
             print(f"[Layer 1] Shape: {x.shape} | Min: {x.min()} | Max: {x.max()} | Std: {x.std()} | Mean: {x.mean()}")
-        # x = self.layer2(x)
-        # if verbose:
-        #     print(f"[Layer 2] Shape: {x.shape} | Min: {x.min()}  | Max: {x.max()} | Std: {x.std()} | Mean: {x.mean()}")
-
-        # x = self.layer3(x)
-        # if verbose:
-        #     print(f"After layer3: {x.shape}")
-        
         x = self.pool(x)
         if verbose:
             print(f"[After Pooling] Shape: {x.shape} | Min: {x.min()}  | Max: {x.max()} | Std: {x.std()} | Mean: {x.mean()}")

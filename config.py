@@ -11,7 +11,7 @@ LOG_DIR = BASE_DIR / "logs"
 CHECKPOINT_DIR = OUTPUT_DIR / "checkpoints"
 UPLOAD_DIR = BASE_DIR / "uploads"
 SRC_DIR = BASE_DIR / "src"
-MODEL_DIR = SRC_DIR / "models"
+MODEL_DIR = BASE_DIR / 'inference' / "models"
 
 AUDIO_PARAMS = {
     "SAMPLE_RATE": 16000,
@@ -20,8 +20,8 @@ AUDIO_PARAMS = {
 }
 
 H_PARAMS = {
-    "BASE_LR": 0.003,
-    "TOTAL_EPOCH": 20,
+    "BASE_LR": 0.005,
+    "TOTAL_EPOCH": 30,
     "VOCAB_SIZE": 5000,
     "N_FEATS": 80,
     "VERBOSE": False,

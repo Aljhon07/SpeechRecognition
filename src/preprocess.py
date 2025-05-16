@@ -295,7 +295,7 @@ class BucketAudio():
         df = pd.read_csv(self.tsv_file, sep='\t')
         for idx, rows in df.iterrows():
             
-            bucket_duration = float( rows['bucket_duration'])
+            bucket_duration = rows['bucket_duration']
             if bucket_duration >= 30.0:
                 bucket_duration = 30.0
             elif bucket_duration <= 0.0:
@@ -310,7 +310,6 @@ class BucketAudio():
                 bucket_duration = 18.0
             elif bucket_duration <= 25.0:
                 bucket_duration = 25.0
-            
             
             if bucket_duration not in self.buckets:
                 self.buckets[bucket_duration] = []
@@ -355,6 +354,7 @@ def preprocess():
     # AudioInfo().preprocess()
     # print(f"Preprocessing buckets")
     BucketAudio().init()
+    lc.train()
 
 if __name__ == '__main__':
     preprocess()
