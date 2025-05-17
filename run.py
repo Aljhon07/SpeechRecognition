@@ -5,7 +5,7 @@ import tqdm
 mp3_dir = config.COMMON_VOICE_PATH / 'clips'
 wav_dir = config.COMMON_VOICE_PATH / 'wavs'
 
-def remove_audio_files(input_tsv):
+def isolate_files(input_tsv):
     df = pandas.read_csv(input_tsv, sep='\t')
 
     loader = tqdm.tqdm(df.iterrows(), total=len(df), desc="Processing files")
@@ -35,5 +35,5 @@ def remove_audio_files(input_tsv):
 
 
 if __name__ == '__main__':
-    input_tsv = config.COMMON_VOICE_PATH / 'combined.tsv'
-    remove_audio_files(input_tsv)
+    input_tsv = config.COMMON_VOICE_PATH / 'clean.tsv'
+    isolate_files(input_tsv)

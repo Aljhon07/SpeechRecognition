@@ -26,16 +26,16 @@ class LightWeightModel(nn.Module):
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         self.cnn = nn.Sequential(
-            nn.Conv1d(n_feats, 128, 3, 1, padding=3//2),
+            nn.Conv1d(n_feats, 128, 5, 2, padding=5//2),
             ActDropNormCNN1D(128, dropout, keep_shape=True),
-            nn.Conv1d(128, 256, 5, 1, padding=5//2),
-            ActDropNormCNN1D(256, dropout, keep_shape=True),
-            nn.Conv1d(256, 256, 7, 2, padding=7//2),
-            ActDropNormCNN1D(256, dropout),
+            nn.Conv1d(128, 128, 3, 1, padding=3//2),
+            ActDropNormCNN1D(128, dropout, keep_shape=True),
+            nn.Conv1d(128, 128, 3, 1, padding=3//2),
+            ActDropNormCNN1D(128, dropout),
         )
 
         self.dense = nn.Sequential(
-            nn.Linear(256, 128),
+            nn.Linear(128, 128),
             nn.LayerNorm(128),
             nn.GELU(),
             nn.Dropout(dropout),

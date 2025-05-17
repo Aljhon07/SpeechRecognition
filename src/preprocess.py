@@ -38,7 +38,7 @@ class LogMelSpectrogram(nn.Module):
         spec = mean_norm(spec)
         return spec
 
-class AudioInfo():
+class  AudioInfo():
     def __init__(self, tsv_file = config.OUTPUT_DIR / f'{config.LANGUAGE}.tsv', output_dir = config.OUTPUT_DIR / 'spectrograms', sr = 16000, log_mel_spec = LogMelSpectrogram()):
         self.sr = sr
         self.log_mel_spec = log_mel_spec
@@ -62,7 +62,7 @@ class AudioInfo():
         total_rows = len(df)
         progress = tqdm(total=total_rows, desc="Processing files")
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() // 2) as executor:
             futures = []
             for idx, rows in df.iterrows():
                 futures.append(executor.submit(self.process_row, idx, rows))
@@ -90,6 +90,7 @@ class AudioInfo():
                 except Exception as e:
                     tqdm.write(f"Error processing file: {e}")
 
+        df.to_csv(self.tsv_file, sep='\t', index=False)
 
     def process_row(self, idx, rows):
         file_name = rows['file_name']
@@ -293,23 +294,24 @@ class BucketAudio():
         
     def group_duration(self):
         df = pd.read_csv(self.tsv_file, sep='\t')
+        progress = tqdm(total=len(df), desc="Processing Buckets..")
         for idx, rows in df.iterrows():
             
             bucket_duration = rows['bucket_duration']
             if bucket_duration >= 30.0:
                 bucket_duration = 30.0
-            elif bucket_duration <= 0.0:
-                bucket_duration = 0.0
-            elif bucket_duration <= 3.0:
-                bucket_duration = 3.0
-            elif bucket_duration <= 8.0:
-                bucket_duration = 8.0
-            elif bucket_duration <= 13.0:
-                bucket_duration = 13.0
-            elif bucket_duration <= 18.0:
-                bucket_duration = 18.0
+            elif bucket_duration <= 5.0:
+                bucket_duration = 5.0
+            elif bucket_duration <= 10.0:
+                bucket_duration = 10.0
+            elif bucket_duration <= 15.0:
+                bucket_duration = 15.0
+            elif bucket_duration <= 20.0:
+                bucket_duration = 20.0
             elif bucket_duration <= 25.0:
                 bucket_duration = 25.0
+            else:
+                bucket_duration = 0.0
             
             if bucket_duration not in self.buckets:
                 self.buckets[bucket_duration] = []
@@ -321,6 +323,7 @@ class BucketAudio():
                 "orig_duration": rows['orig_duration'],
                 "duration": rows['duration']
             })
+            progress.update(1)
 
     def save_buckets(self):
         for keys, item in self.buckets.items():
@@ -347,14 +350,13 @@ class BucketAudio():
 
 
 def preprocess():
-    print(f"Preprocessing transcriptions")
-    # can pass file name here
+    # print(f"Preprocessing transcriptions")
     # AudioTranscriptionTSV().preprocess_tsv()
     # print(f"Preprocessing audio")
     # AudioInfo().preprocess()
     # print(f"Preprocessing buckets")
     BucketAudio().init()
-    lc.train()
+    # lc.train()
 
 if __name__ == '__main__':
     preprocess()

@@ -70,7 +70,9 @@ class SpeechModule:
         if self.data is None:
             raise ValueError("Data not loaded. Please load data first.")
         
-        for idx, key in enumerate(self.data.keys()):
+        keys = list(self.data.keys())
+        keys = sorted(keys, key=float)
+        for idx, key in enumerate(keys):
             if idx == 0 or key in self.excluded_buckets:
                 continue
             items = self.data[key]
@@ -130,6 +132,7 @@ if __name__ == '__main__':
     speech_module.create_dataloader()
     speech_module.get_dataset_stats()
     loaders = speech_module.loaders
+    print(loaders)
     # for batch in loaders['2.0']['train']:
     #     specs, labels, spec_lens, label_lens, file_name = batch
     #     random_idx = random.randint(0, len(specs) - 1)
