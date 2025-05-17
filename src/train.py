@@ -23,7 +23,7 @@ class SpeechTrainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.device = device
-        self.check_sample = False
+        self.check_sample = True
         self.log_file = config.LOG_DIR / 'train_log.json'
         self.step_losses = {
             'train': [],
@@ -273,10 +273,10 @@ def main():
  
     criterion = nn.CTCLoss(blank=0, zero_infinity=True)
     optimizer = optim.AdamW(model.parameters(), lr=config.H_PARAMS["BASE_LR"])
-    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=10, final_div_factor=100, pct_start=0.3, cycle_momentum=False)
+    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=20, final_div_factor=50, pct_start=0.3, cycle_momentum=False)
 
     trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device)
-    trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=True)
+    trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=False)
     
 if __name__ == "__main__":
     main()

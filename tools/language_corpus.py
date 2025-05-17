@@ -3,7 +3,6 @@ import sentencepiece as spm
 import config
 
 
-
 def train(model_type='char', vocab_size=config.H_PARAMS["VOCAB_SIZE"],model_prefix = config.LANGUAGE):
     if vocab_size > 100:
         model_type = 'bpe'
@@ -44,8 +43,9 @@ def encode(input_text, vocab_model=model_file):
         print(f"Error encoding with SentencePiece: {e}")
         return None
 
-def decode(encoded_tokens, vocab_model=model_file):
-    print(f"Using vocab model: {vocab_model}")
+def decode(encoded_tokens, vocab_model=model_file, verbose=False):
+    if verbose:
+        print(f"Using vocab model: {vocab_model}")
     try:
         sp = spm.SentencePieceProcessor(vocab_model)
         decoded = sp.decode(encoded_tokens)

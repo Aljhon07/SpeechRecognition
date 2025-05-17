@@ -89,7 +89,7 @@ class AudioInfo():
                     progress.update(1)
                 except Exception as e:
                     tqdm.write(f"Error processing file: {e}")
-
+        df.to_csv(self.tsv_file, sep='\t', index=False)
 
     def process_row(self, idx, rows):
         file_name = rows['file_name']
@@ -298,8 +298,6 @@ class BucketAudio():
             bucket_duration = rows['bucket_duration']
             if bucket_duration >= 30.0:
                 bucket_duration = 30.0
-            elif bucket_duration <= 0.0:
-                bucket_duration = 0.0
             elif bucket_duration <= 3.0:
                 bucket_duration = 3.0
             elif bucket_duration <= 8.0:
@@ -310,6 +308,8 @@ class BucketAudio():
                 bucket_duration = 18.0
             elif bucket_duration <= 25.0:
                 bucket_duration = 25.0
+            else:
+                bucket_duration = 0.0
             
             if bucket_duration not in self.buckets:
                 self.buckets[bucket_duration] = []
@@ -351,7 +351,7 @@ def preprocess():
     # can pass file name here
     # AudioTranscriptionTSV().preprocess_tsv()
     # print(f"Preprocessing audio")
-    # AudioInfo().preprocess()
+    AudioInfo().preprocess()
     # print(f"Preprocessing buckets")
     BucketAudio().init()
     lc.train()

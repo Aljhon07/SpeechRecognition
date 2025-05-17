@@ -10,7 +10,8 @@ import torch.nn.functional as F
 import config
 import uuid
 import winsound
-
+import jiwer
+import pandas as pd
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = Model()
 LOCAL_MODEL_PATH = config.MODEL_DIR / 'OneCycle'
@@ -24,9 +25,9 @@ model.to(device)
 
 log_mel = LogMelSpectrogram()
 
-def inference(file_path):
-    print(f"Using Model: {checkpoint_path}")
-    print(f"Loading audio file: {file_path}")
+def inference(file_path, verbose=True):
+    # print(f"Using Model: {checkpoint_path}")
+    # print(f"Loading audio file: {file_path}")
 
     id = uuid.uuid4().hex
     converted_file = audio.to_wav(file_path,  config.UPLOAD_DIR / f"{id}.wav")
@@ -45,16 +46,16 @@ def inference(file_path):
     with torch.no_grad():
         output, hidden = model(spectrogram)
         output = F.log_softmax(output, dim=-1)
-        print(f"Output shape: {output.shape}")
+        # print(f"Output shape: {output.shape}")
         predicted_ids = torch.argmax(output, dim=-1).transpose(0, 1)
-        print(f"Predicted IDs shape: {predicted_ids.shape}")
+        # print(f"Predicted IDs shape: {predicted_ids.shape}")
         raw_prediction = utils.ctc_decoder(predicted_ids.tolist())
-        print(raw_prediction)
+        # print(raw_prediction)
         decoded_pred = lc.decode(raw_prediction, str(LOCAL_MODEL_PATH / f"{config.LANGUAGE}.model"))
         return decoded_pred
 
 if __name__ == '__main__':
-    # path = config.COMMON_VOICE_PATH / 'clips' / 'common_voice_en_16759015.mp3'
+    
     path = config.OUTPUT_DIR / 'a.wav'
     result = inference(path)
     print(f"Decoded prediction: {result}")
