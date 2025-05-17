@@ -15,15 +15,15 @@ import torch.nn as nn
 import torchaudio.transforms as T
 
 class SpeechDataset(Dataset):
-    def __init__(self, data, augmented=False, augmented_prob=0.4):
+    def __init__(self, data, augmented=False, augmented_prob=0.5):
         self.data = data
         self.augmented = augmented
         self.augmented_prob = augmented_prob
         self.logmel = LogMelSpectrogram()
         self.total_duration = sum(item['duration'] for item in data) / (60 * 60)
         self.apply_mask = nn.Sequential(
-            T.TimeMasking(time_mask_param=15),
-            T.FrequencyMasking(freq_mask_param=10)        )
+            T.TimeMasking(time_mask_param=25),
+            T.FrequencyMasking(freq_mask_param=15))
         
     def __len__(self):
         return len(self.data)
@@ -73,7 +73,7 @@ class SpeechModule:
         keys = list(self.data.keys())
         keys = sorted(keys, key=float)
         for idx, key in enumerate(keys):
-            if idx == 0 or key in self.excluded_buckets:
+            if key in self.excluded_buckets:
                 continue
             items = self.data[key]
             random.shuffle(items)

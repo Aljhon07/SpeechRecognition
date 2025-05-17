@@ -49,7 +49,7 @@ class SpeechTrainer:
     def start(self, num_epochs=15, resume=False, sort=False):
         start_epoch = 0
         if resume:
-            start_epoch = self.load_checkpoint(config.CHECKPOINT_DIR / 'checkpoint_epoch_6_train_2.7043.pth')
+            start_epoch = self.load_checkpoint(config.CHECKPOINT_DIR / 'checkpoint_epoch_6_train_3.1267.pth')
             input("Press any key to resume...")
 
         for epoch in range(start_epoch, num_epochs):
@@ -139,7 +139,7 @@ class SpeechTrainer:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
 
                 lr = f"{self.scheduler.get_last_lr()[0]:.7f}".rstrip('0')
-                loader_progress = f"{loader_idx}/{len(loaders)}"
+                loader_progress = f"{loader_idx + 1}/{len(loaders)}"
                 progress_bar.set_postfix({
                     "LR": lr,
                     "Key": key,
@@ -297,7 +297,7 @@ def main():
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=10, final_div_factor=100, pct_start=0.3, cycle_momentum=False)
 
     trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device)
-    trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=False, sort=True)
+    trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=True, sort=True)
     
 if __name__ == "__main__":
     main()
