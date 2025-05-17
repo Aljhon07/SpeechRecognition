@@ -62,7 +62,7 @@ class  AudioInfo():
         total_rows = len(df)
         progress = tqdm(total=total_rows, desc="Processing files")
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count() // 2) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
             futures = []
             for idx, rows in df.iterrows():
                 futures.append(executor.submit(self.process_row, idx, rows))
@@ -116,6 +116,10 @@ class  AudioInfo():
         if sr != self.sr:
             waveform = torchaudio.transforms.Resample(sr, self.sr)(waveform)
 
+        if torch.isnan(waveform).any() or torch.isinf(waveform).any():
+            print(f"Skipping {audio_file}: invalid values.")
+            return None
+        
         orig_duration = info.num_frames / self.sr
         bucket = get_bucket_duration(waveform)
     
@@ -185,7 +189,7 @@ class AudioTranscriptionTSV():
         else:
             raise ValueError("Duplicate paths found in the TSV file.")
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
             futures = []
             for idx, rows in df.iterrows():
                 futures.append(executor.submit(self.process_row, idx, rows))
@@ -300,6 +304,8 @@ class BucketAudio():
             bucket_duration = rows['bucket_duration']
             if bucket_duration >= 30.0:
                 bucket_duration = 30.0
+            elif bucket_duration <= 0.0:
+                bucket_duration = 0.0
             elif bucket_duration <= 5.0:
                 bucket_duration = 5.0
             elif bucket_duration <= 10.0:

@@ -21,31 +21,31 @@ class ActDropNormCNN1D(nn.Module):
 
 class LightWeightModel(nn.Module):
 
-    def __init__(self, hidden_size=512, num_classes=config.H_PARAMS['VOCAB_SIZE'], n_feats=80, num_layers=1, dropout=0.1):
+    def __init__(self, hidden_size=512, num_classes=config.H_PARAMS['VOCAB_SIZE'], n_feats=80, num_layers=1, dropout=0.2):
         super(LightWeightModel, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         self.cnn = nn.Sequential(
             nn.Conv1d(n_feats, 128, 5, 2, padding=5//2),
             ActDropNormCNN1D(128, dropout, keep_shape=True),
-            nn.Conv1d(128, 128, 3, 1, padding=3//2),
-            ActDropNormCNN1D(128, dropout, keep_shape=True),
-            nn.Conv1d(128, 128, 3, 1, padding=3//2),
-            ActDropNormCNN1D(128, dropout),
+            nn.Conv1d(128, 256, 3, 1, padding=3//2),
+            ActDropNormCNN1D(256, dropout, keep_shape=True),
+            nn.Conv1d(256, 256, 3, 1, padding=3//2),
+            ActDropNormCNN1D(256, dropout),
         )
 
         self.dense = nn.Sequential(
-            nn.Linear(128, 128),
-            nn.LayerNorm(128),
+            nn.Linear(256, 256),
+            nn.LayerNorm(256),
             nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(128, 128),
-            nn.LayerNorm(128),
+            nn.Linear(256, 256),
+            nn.LayerNorm(256),
             nn.GELU(),
             nn.Dropout(dropout),
         )
         
-        self.bigru = nn.GRU(input_size=128, hidden_size=512,
+        self.bigru = nn.GRU(input_size=256, hidden_size=512,
                             num_layers=num_layers, dropout=0.0,
                             bidirectional=True)
         
