@@ -90,7 +90,7 @@ if __name__ == '__main__':
     # output_tsv = config.COMMON_VOICE_PATH / 'filtered.tsv'
     # combined_tsv( ['dev', 'test', 'train', 'validated'])
     # keep_unique_paths(config.COMMON_VOICE_PATH / 'combined.tsv', config.COMMON_VOICE_PATH / 'unique_audio.tsv')
-    # keep_max_n_duplicates(config.COMMON_VOICE_PATH / 'unique_audio.tsv', config.COMMON_VOICE_PATH / 'clean_2.tsv', max_count=2)
+    keep_max_n_duplicates(config.COMMON_VOICE_PATH / 'clean.tsv', config.COMMON_VOICE_PATH / 'clean_test.tsv', max_count=1)
     # remove_audio_files(config.COMMON_VOICE_PATH / 'diff.tsv')
     # combined_tsv(['clean_1', 'clean_2'])
     # tsv_diff(config.COMMON_VOICE_PATH / 'other.tsv', config.COMMON_VOICE_PATH / 'clean.tsv')

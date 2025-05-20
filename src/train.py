@@ -73,9 +73,11 @@ class SpeechTrainer:
                     self.sanity_check(self.loaders[random_bucket]['val'])
                     self.check_sample = False
 
-            if epoch > 15:
-                difficulty = len(loader[train_loaders])
-            elif epoch > 5:
+            if epoch > 20:
+                difficulty = len(train_loaders)
+            elif epoch > 15:
+                difficulty = len(train_loaders) - 1
+            elif epoch > 10:
                 difficulty = 2
             else:
                 difficulty = 1
@@ -284,11 +286,13 @@ def main():
     for key, value in loaders.items():
         loader = value['train']
         if key == '5.0':
+            multiplier = 30
+        elif key == '10.0':
             multiplier = 20
-        elif key == '10.0' or key == '15.0':
-            multiplier = 15
+        elif key == '15.0':
+            multiplier = 10
         else:
-            multiplier = 5
+            multiplier = 10
 
         total_steps += len(loader) * multiplier
 
@@ -299,7 +303,7 @@ def main():
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=10, final_div_factor=100, pct_start=0.3, cycle_momentum=False)
 
     trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device)
-    trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=False, sort=True, checkpoint_name=None)
+    trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=False, sort=True, checkpoint_name="checkpoint_epoch_8_train_3.1366.pth")
     
 if __name__ == "__main__":
     main()

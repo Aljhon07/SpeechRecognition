@@ -9,8 +9,6 @@ data/
 *.tar.gz
 *.tar
 *.conda
-*.model
-*.vocab
 *.txt
 *.idea
 *.json

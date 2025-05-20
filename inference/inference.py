@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from inference.models.OneCycle.LightWeightModel import LightWeightModel as Model
+from inference.models.Curriculum.LightWeightModel import LightWeightModel as Model
 from src.preprocess import LogMelSpectrogram
 import os
 from tools import audio, utils, language_corpus as lc
@@ -13,8 +13,8 @@ import winsound
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = Model()
-LOCAL_MODEL_PATH = config.MODEL_DIR / 'OneCycle'
-checkpoint_path = LOCAL_MODEL_PATH / '_(wrong_bucketing)_checkpoint_epoch_12_val_1.6430.pth'
+LOCAL_MODEL_PATH = config.MODEL_DIR / 'Curriculum'
+checkpoint_path = LOCAL_MODEL_PATH / 'checkpoint_epoch_20_val_1.6031.pth'
 
 # Load checkpoint once
 checkpoint = torch.load(checkpoint_path, map_location=device)
