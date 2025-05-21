@@ -26,32 +26,33 @@ class LightWeightModel(nn.Module):
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         self.cnn = nn.Sequential(
-            nn.Conv1d(n_feats, 128, 5, 2, padding=5//2),
+            nn.Conv1d(n_feats, 128, 7, 2, padding=7//2),
             ActDropNormCNN1D(128, dropout, keep_shape=True),
             nn.Conv1d(128, 256, 3, 1, padding=3//2),
             ActDropNormCNN1D(256, dropout, keep_shape=True),
-            nn.Conv1d(256, 256, 3, 1, padding=3//2),
-            ActDropNormCNN1D(256, dropout),
+            nn.Conv1d(256, 128, 3, 1, padding=3//2),
+            ActDropNormCNN1D(128, dropout),
         )
 
         self.dense = nn.Sequential(
-            nn.Linear(256, 256),
-            nn.LayerNorm(256),
+            nn.Linear(128, 128),
+            nn.LayerNorm(128),
             nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(256, 256),
-            nn.LayerNorm(256),
+            nn.Linear(128, 128),
+            nn.LayerNorm(128),
             nn.GELU(),
             nn.Dropout(dropout),
         )
         
-        self.bigru = nn.GRU(input_size=256, hidden_size=512,
+        self.bigru = nn.GRU(input_size=128, hidden_size=512,
                             num_layers=num_layers, dropout=0.0,
                             bidirectional=True)
         
         self.layer_norm2 = nn.LayerNorm(hidden_size * 2)
         self.dropout2 = nn.Dropout(dropout)
         self.final_fc = nn.Linear(hidden_size * 2, num_classes)
+        self.final_fc.bias.data[0] = -5.0
 
     def _init_hidden(self, batch_size, device):
         n, hs = self.num_layers, self.hidden_size

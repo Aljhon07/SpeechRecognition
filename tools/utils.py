@@ -11,6 +11,7 @@ import time
 import config
 import os
 import pandas as pd
+import jiwer
 
 def normalize_text(input):
     # remove_chars = r"[?!’–—‘\-\.:;()“”\"]"
@@ -160,6 +161,8 @@ def ctc_decoder(preds):
         prev_char = char_idx
     return decoded
 
+def wer(ref, hyp):
+    pass
 if __name__ == "__main__":
     # with open(os.path.join(config.OUTPUT_DIR / 'buckets', 'bucket_3.0.json'), 'r') as f:
     #         data = json.load(f)

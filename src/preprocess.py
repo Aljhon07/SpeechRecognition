@@ -361,8 +361,8 @@ def preprocess():
     # print(f"Preprocessing audio")
     # AudioInfo().preprocess()
     # print(f"Preprocessing buckets")
-    BucketAudio().init()
-    # lc.train()
+    # BucketAudio().init()
+    lc.train()
 
 if __name__ == '__main__':
     preprocess()

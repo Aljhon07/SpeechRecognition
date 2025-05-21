@@ -13,7 +13,7 @@ import winsound
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = Model()
-LOCAL_MODEL_PATH = config.MODEL_DIR / 'Curriculum'
+LOCAL_MODEL_PATH = config.MODEL_DIR / 'OneCycle'
 checkpoint_path = LOCAL_MODEL_PATH / 'checkpoint_epoch_20_val_1.6031.pth'
 
 # Load checkpoint once
@@ -25,8 +25,8 @@ model.to(device)
 log_mel = LogMelSpectrogram()
 
 def inference(file_path):
-    print(f"Using Model: {checkpoint_path}")
-    print(f"Loading audio file: {file_path}")
+    # print(f"Using Model: {checkpoint_path}")
+    # print(f"Loading audio file: {file_path}")
 
     id = uuid.uuid4().hex
     converted_file = audio.to_wav(file_path,  config.UPLOAD_DIR / f"{id}.wav")
@@ -40,16 +40,16 @@ def inference(file_path):
         
     spectrogram = log_mel(waveform).to(device)
 
-    os.remove(file_path)
+    # os.remove(file_path)
     os.remove(converted_file)
     with torch.no_grad():
         output, hidden = model(spectrogram)
         output = F.log_softmax(output, dim=-1)
-        print(f"Output shape: {output.shape}")
+        # print(f"Output shape: {output.shape}")
         predicted_ids = torch.argmax(output, dim=-1).transpose(0, 1)
-        print(f"Predicted IDs shape: {predicted_ids.shape}")
+        # print(f"Predicted IDs shape: {predicted_ids.shape}")
         raw_prediction = utils.ctc_decoder(predicted_ids.tolist())
-        print(raw_prediction)
+        # print(raw_prediction)
         decoded_pred = lc.decode(raw_prediction, str(LOCAL_MODEL_PATH / f"{config.LANGUAGE}.model"))
         return decoded_pred
 

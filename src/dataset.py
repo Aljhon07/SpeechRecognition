@@ -51,7 +51,7 @@ class SpeechDataset(Dataset):
         return audio
     
 class SpeechModule:
-    def __init__(self, data=None, excluded_buckets=['0.0', '30.0']):
+    def __init__(self, data=None, excluded_buckets=['0.0', '15.0', '20.0', '30.0']):
         self.data = data
         self.bucket = BucketAudio()
         self.loaders = {}
@@ -76,7 +76,6 @@ class SpeechModule:
             if key in self.excluded_buckets:
                 continue
             items = self.data[key]
-            random.shuffle(items)
             split_idx = int(len(items) * (1 - val_split))
             train_data = items[:split_idx]
             val_data = items[split_idx:]
