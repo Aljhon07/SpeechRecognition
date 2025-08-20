@@ -21,7 +21,7 @@ class ActDropNormCNN1D(nn.Module):
 
 class LightWeightModel(nn.Module):
 
-    def __init__(self, hidden_size=512, num_classes=config.H_PARAMS['VOCAB_SIZE'], n_feats=80, num_layers=1, dropout=0.2):
+    def __init__(self, hidden_size=512, num_classes=config.H_PARAMS['VOCAB_SIZE'], n_feats=80, num_layers=3, dropout=0.2):
         super(LightWeightModel, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
@@ -38,11 +38,8 @@ class LightWeightModel(nn.Module):
             nn.Linear(128, 128),
             nn.LayerNorm(128),
             nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(128, 128),
-            nn.LayerNorm(128),
-            nn.GELU(),
-            nn.Dropout(dropout),
+            nn.Dropout(dropout)
+ 
         )
         
         self.bigru = nn.GRU(input_size=128, hidden_size=512,

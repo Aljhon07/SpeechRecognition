@@ -39,10 +39,10 @@ class LogMelSpectrogram(nn.Module):
         return spec
 
 class  AudioInfo():
-    def __init__(self, tsv_file = config.OUTPUT_DIR / f'{config.LANGUAGE}.tsv', output_dir = config.OUTPUT_DIR / 'spectrograms', sr = 16000, log_mel_spec = LogMelSpectrogram()):
+    def __init__(self, output_dir = config.OUTPUT_DIR / 'spectrograms', sr = 16000, log_mel_spec = LogMelSpectrogram()):
         self.sr = sr
         self.log_mel_spec = log_mel_spec
-        self.tsv_file = tsv_file
+        self.tsv_file = None
         self.output_dir = output_dir
         self.processed_files = {
             'success': 0,
@@ -54,7 +54,8 @@ class  AudioInfo():
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
     
-    def preprocess(self):
+    def preprocess(self, tsv_file):
+        self.tsv_file = config.OUTPUT_DIR / tsv_file + ".tsv"
         if not os.path.exists(self.tsv_file):
             raise FileNotFoundError(f"{self.tsv_file} does not exist")
 
@@ -158,17 +159,12 @@ class AudioTranscriptionTSV():
 
     def preprocess_tsv(self, file_name = 'clean'):
         file_path = config.COMMON_VOICE_PATH / f"{file_name}.tsv"
+        self.save_file = config.OUTPUT_DIR / f'{file_name}.tsv'
         self.load_file(file_path)
 
         self.save_tsv()
         print(f"Saved TSV file to {self.save_file} | Success: {self.preprocess_count['success']} | Fail: {self.preprocess_count['fail']}")
 
-        print(f"Generating transcription list")
-        self.generate_transcription_list()
-        print(f"Generated transcription list")
-
-        print(f"Training language corpus")
-        lc.train()
 
     def save_tsv(self):
         print(f"Saving TSV file to {self.save_file}")
@@ -269,12 +265,34 @@ class AudioTranscriptionTSV():
             tqdm.write(f"Error processing file {file_name}: {e}")
         return local_results
            
-
     def generate_transcription_list(self):
         print(f"Generating transcription list")
 
-        df = pd.read_csv(self.save_file, sep='\t')
-        transcription_list = df['transcription'].tolist()
+        # Read train file
+        train_file = config.OUTPUT_DIR / f'train.tsv'
+        dev_file = config.OUTPUT_DIR / f'dev.tsv'
+        
+        transcription_list = []
+        
+        # Read train file if it exists
+        if os.path.exists(train_file):
+            df_train = pd.read_csv(train_file, sep='\t')
+            train_transcriptions = df_train['transcription'].tolist()
+            transcription_list.extend(train_transcriptions)
+            print(f"Added {len(train_transcriptions)} transcriptions from train.tsv")
+        
+        # Read dev file if it exists
+        if os.path.exists(dev_file):
+            df_dev = pd.read_csv(dev_file, sep='\t')
+            dev_transcriptions = df_dev['transcription'].tolist()
+            transcription_list.extend(dev_transcriptions)
+            print(f"Added {len(dev_transcriptions)} transcriptions from dev.tsv")
+        
+        # Fallback to original save_file if train/dev files don't exist
+        if not transcription_list:
+            print(f"Train/dev files not found, using {self.save_file}")
+            df = pd.read_csv(self.save_file, sep='\t')
+            transcription_list = df['transcription'].tolist()
 
         transcription_filename = config.OUTPUT_DIR / f'{config.LANGUAGE}_sentences.txt'
         os.makedirs(transcription_filename.parent, exist_ok=True)
@@ -282,25 +300,35 @@ class AudioTranscriptionTSV():
             for transcription in transcription_list:
                 f.write(transcription + '\n')
 
-        print(f"Generated transcription list - {transcription_filename}")
+        print(f"Generated transcription list with {len(transcription_list)} total transcriptions - {transcription_filename}")
 
 class BucketAudio():
     def __init__(self):
         self.output_dir = config.OUTPUT_DIR / 'buckets'
-        self.tsv_file = config.OUTPUT_DIR / f'{config.LANGUAGE}.tsv'
-        self.df = pd.read_csv(self.tsv_file, sep='\t')
-        self.buckets = {
+        self.train_output_dir = self.output_dir / 'train'
+        self.dev_output_dir = self.output_dir / 'dev'
+        self.train_tsv_file = config.OUTPUT_DIR / 'train.tsv'
+        self.dev_tsv_file = config.OUTPUT_DIR / 'dev.tsv'
+        self.train_buckets = {}
+        self.dev_buckets = {}
 
-        }
-
-        if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
+        # Create directories for train and dev buckets
+        if not os.path.exists(self.train_output_dir):
+            os.makedirs(self.train_output_dir)
+        if not os.path.exists(self.dev_output_dir):
+            os.makedirs(self.dev_output_dir)
         
-    def group_duration(self):
-        df = pd.read_csv(self.tsv_file, sep='\t')
-        progress = tqdm(total=len(df), desc="Processing Buckets..")
-        for idx, rows in df.iterrows():
+    def group_duration_for_file(self, tsv_file, buckets_dict, data_type):
+        """Group duration for a specific TSV file (train or dev)"""
+        if not os.path.exists(tsv_file):
+            print(f"File {tsv_file} not found, skipping {data_type} bucketing")
+            return
             
+        df = pd.read_csv(tsv_file, sep='\t')
+        print(f"Processing {len(df)} samples for {data_type} bucketing")
+        progress = tqdm(total=len(df), desc=f"Processing {data_type} Buckets..")
+        
+        for idx, rows in df.iterrows():
             bucket_duration = rows['bucket_duration']
             if bucket_duration >= 30.0:
                 bucket_duration = 30.0
@@ -319,10 +347,10 @@ class BucketAudio():
             else:
                 bucket_duration = 0.0
             
-            if bucket_duration not in self.buckets:
-                self.buckets[bucket_duration] = []
+            if bucket_duration not in buckets_dict:
+                buckets_dict[bucket_duration] = []
 
-            self.buckets[bucket_duration].append({
+            buckets_dict[bucket_duration].append({
                 "file_name": rows["file_name"],
                 "transcription": rows['transcription'],
                 "bucket_duration": rows['bucket_duration'],
@@ -330,24 +358,51 @@ class BucketAudio():
                 "duration": rows['duration']
             })
             progress.update(1)
+    
+    def group_duration(self):
+        # Process train data
+        self.group_duration_for_file(self.train_tsv_file, self.train_buckets, "train")
+        
+        # Process dev data  
+        self.group_duration_for_file(self.dev_tsv_file, self.dev_buckets, "dev")
 
     def save_buckets(self):
-        for keys, item in self.buckets.items():
-            bucket_file = self.output_dir / f"bucket_{keys}.json"
-
+        # Save train buckets
+        for keys, item in self.train_buckets.items():
+            bucket_file = self.train_output_dir / f"bucket_{keys}.json"
+            with open(bucket_file, 'w') as f:
+                json.dump(item, f, indent=2)
+        
+        # Save dev buckets
+        for keys, item in self.dev_buckets.items():
+            bucket_file = self.dev_output_dir / f"bucket_{keys}.json"
             with open(bucket_file, 'w') as f:
                 json.dump(item, f, indent=2)
 
-        print(f"[✓] Saved {len(self.buckets.keys())} buckets to: {self.output_dir}")
+        print(f"[✓] Saved {len(self.train_buckets.keys())} train buckets to: {self.train_output_dir}")
+        print(f"[✓] Saved {len(self.dev_buckets.keys())} dev buckets to: {self.dev_output_dir}")
     
-    def load_buckets(self):
+    def load_buckets(self, data_type='train'):
+        """Load buckets for specific data type (train or dev)"""
+        if data_type == 'train':
+            bucket_dir = self.train_output_dir
+        elif data_type == 'dev':
+            bucket_dir = self.dev_output_dir
+        else:
+            # Fallback to original behavior for backward compatibility
+            bucket_dir = self.output_dir
+        
         data = {}
-        for bucket_file in os.listdir(self.output_dir):
+        if not os.path.exists(bucket_dir):
+            print(f"Bucket directory {bucket_dir} does not exist")
+            return data
+            
+        for bucket_file in os.listdir(bucket_dir):
             if bucket_file.endswith('.json'):
-                with open(os.path.join(self.output_dir, bucket_file), 'r') as f:
+                with open(os.path.join(bucket_dir, bucket_file), 'r') as f:
                     data[bucket_file.replace('.json', '').replace('bucket_', '')] = json.load(f)
 
-        print(f"[✓] Loaded {len(data.keys())} buckets from: {self.output_dir}")
+        print(f"[✓] Loaded {len(data.keys())} {data_type} buckets from: {bucket_dir}")
         return data
 
     def init(self):
@@ -356,13 +411,18 @@ class BucketAudio():
 
 
 def preprocess():
-    # print(f"Preprocessing transcriptions")
-    # AudioTranscriptionTSV().preprocess_tsv()
-    # print(f"Preprocessing audio")
-    # AudioInfo().preprocess()
-    # print(f"Preprocessing buckets")
-    # BucketAudio().init()
+    print(f"Preprocessing transcriptions")
+    audio_transcription = AudioTranscriptionTSV()
+    audio_transcription.preprocess_tsv('train')
+    audio_transcription.preprocess_tsv('dev')
+    audio_transcription.generate_transcription_list()
     lc.train()
+    print(f"Preprocessing audio")
+    audio_info = AudioInfo()
+    audio_info.preprocess('train')
+    audio_info.preprocess('dev')
+    print(f"Preprocessing buckets")
+    BucketAudio().init()
 
 if __name__ == '__main__':
     preprocess()

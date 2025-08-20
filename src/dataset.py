@@ -52,7 +52,8 @@ class SpeechDataset(Dataset):
     
 class SpeechModule:
     def __init__(self, data=None, excluded_buckets=['0.0', '15.0', '20.0', '30.0']):
-        self.data = data
+        self.train_data = None
+        self.dev_data = None
         self.bucket = BucketAudio()
         self.loaders = {}
         self.datasets = {}
@@ -62,26 +63,42 @@ class SpeechModule:
         self.create_dataloader()
     
     def load_data(self):
-        if not os.path.exists(config.OUTPUT_DIR / 'buckets'):
+        # Check if buckets exist, if not create them
+        if not os.path.exists(config.OUTPUT_DIR / 'buckets' / 'train') or not os.path.exists(config.OUTPUT_DIR / 'buckets' / 'dev'):
             self.bucket.init()
-        self.data = self.bucket.load_buckets()
+        
+        # Load train and dev data separately
+        self.train_data = self.bucket.load_buckets('train')
+        self.dev_data = self.bucket.load_buckets('dev')
     
-    def create_dataloader(self, batch_size=config.H_PARAMS["BATCH_SIZE"], val_split=0.1):
-        if self.data is None:
+    def create_dataloader(self, batch_size=config.H_PARAMS["BATCH_SIZE"]):
+        if self.train_data is None or self.dev_data is None:
             raise ValueError("Data not loaded. Please load data first.")
         
-        keys = list(self.data.keys())
-        keys = sorted(keys, key=float)
-        for idx, key in enumerate(keys):
+        # Get all available bucket keys from train data
+        train_keys = set(self.train_data.keys())
+        dev_keys = set(self.dev_data.keys())
+        
+        # Use intersection to ensure we have both train and dev data for each bucket
+        common_keys = train_keys.intersection(dev_keys)
+        keys = sorted(list(common_keys), key=float)
+        
+        print(f"Available buckets: {sorted(list(train_keys), key=float)}")
+        print(f"Train buckets: {sorted(list(train_keys), key=float)}")
+        print(f"Dev buckets: {sorted(list(dev_keys), key=float)}")
+        print(f"Common buckets: {keys}")
+        
+        for key in keys:
             if key in self.excluded_buckets:
+                print(f"Excluding bucket {key}")
                 continue
-            items = self.data[key]
-            split_idx = int(len(items) * (1 - val_split))
-            train_data = items[:split_idx]
-            val_data = items[split_idx:]
+                
+            # Use train data for training and dev data for validation
+            train_items = self.train_data[key]
+            dev_items = self.dev_data[key]
 
-            train_dataset = SpeechDataset(train_data, augmented=True)
-            val_dataset = SpeechDataset(val_data, augmented=False)
+            train_dataset = SpeechDataset(train_items, augmented=True)
+            val_dataset = SpeechDataset(dev_items, augmented=False)
             
             self.datasets[key] = {
                 'train': train_dataset,
@@ -92,6 +109,7 @@ class SpeechModule:
                 'train': DataLoader(train_dataset, batch_size=batch_size, drop_last=True, shuffle=True, collate_fn=self.collate_fn),
                 'val': DataLoader(val_dataset, batch_size=batch_size, drop_last=True, shuffle=False, collate_fn=self.collate_fn)
             }
+        
         self.get_dataset_stats()
         return self.loaders
 
