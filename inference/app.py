@@ -43,4 +43,7 @@ def transcibe():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    print("Starting Speech Recognition Server...")
+    print("Open your browser and go to: http://localhost:8080")
+    print("Make sure to allow microphone permissions when prompted!")
+    app.run(debug=True, host='localhost', port=8080, threaded=True)

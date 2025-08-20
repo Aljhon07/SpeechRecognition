@@ -70,79 +70,176 @@
     <button id="recordBtn">Start Recording 🎤</button>
     <div id="error"></div>
 
-    <script>
-      let mediaRecorder;
-      let audioChunks = [];
-      let isRecording = false;
+    <!-- File Upload Fallback -->
+    <div id="fileUpload" style="display: none; margin-top: 2rem">
+      <h3>Upload Audio File</h3>
+      <input
+        type="file"
+        id="audioFile"
+        accept="audio/*"
+        style="
+          margin: 1rem;
+          padding: 0.5rem;
+          border-radius: 5px;
+          border: 1px solid #555;
+          background: #333;
+          color: #eee;
+        "
+      />
+      <button id="uploadBtn" style="background: #f39c12; margin-left: 1rem">
+        Upload & Transcribe 📁
+      </button>
+    </div>
 
-      const recordBtn = document.getElementById("recordBtn");
-      const transcriptDiv = document.getElementById("transcript");
-      const errorDiv = document.getElementById("error");
+    <script>
+      let mediaRecorder
+      let audioChunks = []
+      let isRecording = false
+
+      const recordBtn = document.getElementById("recordBtn")
+      const transcriptDiv = document.getElementById("transcript")
+      const errorDiv = document.getElementById("error")
+      const fileUploadDiv = document.getElementById("fileUpload")
+      const audioFileInput = document.getElementById("audioFile")
+      const uploadBtn = document.getElementById("uploadBtn")
+
+      // Check browser compatibility on page load
+      window.addEventListener('load', () => {
+        console.log("Page loaded, checking browser compatibility...")
+        
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          console.error("getUserMedia not supported")
+          errorDiv.innerHTML = `
+            <strong>Your browser doesn't support microphone access!</strong><br>
+            Please use Chrome, Firefox, Safari, or Edge.<br>
+            <strong>Alternative:</strong> Use file upload below.
+          `
+          showFileUpload()
+          recordBtn.disabled = true
+        } else {
+          console.log("getUserMedia is supported!")
+          errorDiv.textContent = "Click 'Start Recording' to begin"
+        }
+      })
+
+      // File upload functionality
+      uploadBtn.onclick = async () => {
+        const file = audioFileInput.files[0]
+        if (!file) {
+          errorDiv.textContent = "Please select an audio file first."
+          return
+        }
+
+        errorDiv.textContent = ""
+        transcriptDiv.textContent = "Processing audio file..."
+        uploadBtn.disabled = true
+        uploadBtn.textContent = "Processing..."
+
+        await sendAudio(file)
+
+        uploadBtn.disabled = false
+        uploadBtn.textContent = "Upload & Transcribe 📁"
+      }
+
+      function showFileUpload() {
+        fileUploadDiv.style.display = "block"
+      }
 
       recordBtn.onclick = async () => {
-        errorDiv.textContent = "";
+        errorDiv.textContent = ""
         if (!isRecording) {
           // Start recording
-          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            errorDiv.textContent =
-              "Sorry, getUserMedia is not supported by your browser.";
-            return;
-          }
-
           try {
+            console.log("Requesting microphone access...")
+            
+            // Simple, working getUserMedia request
             const stream = await navigator.mediaDevices.getUserMedia({
-              audio: true,
-            });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
+              audio: true
+            })
+            
+            console.log("Microphone access granted!")
+            
+            mediaRecorder = new MediaRecorder(stream)
+            audioChunks = []
 
             mediaRecorder.ondataavailable = (e) => {
-              if (e.data.size > 0) audioChunks.push(e.data);
-            };
+              if (e.data.size > 0) audioChunks.push(e.data)
+            }
 
             mediaRecorder.onstop = async () => {
-              const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-              await sendAudio(audioBlob);
+              console.log("Recording stopped, processing audio...")
+              const audioBlob = new Blob(audioChunks, { type: "audio/webm" })
+              await sendAudio(audioBlob)
+              stream.getTracks().forEach((track) => track.stop())
+            }
 
-              stream.getTracks().forEach((track) => track.stop());
-            };
-
-            mediaRecorder.start();
-            isRecording = true;
-            recordBtn.textContent = "Stop Recording ⏹️";
-            recordBtn.classList.add("recording");
-            transcriptDiv.textContent = ""; // Clear old transcript on new recording
+            mediaRecorder.start()
+            isRecording = true
+            recordBtn.textContent = "Stop Recording ⏹️"
+            recordBtn.classList.add("recording")
+            transcriptDiv.textContent = "Recording... Speak now!"
+            
           } catch (err) {
-            errorDiv.textContent = `Error accessing microphone: ${err.message}`;
+            console.error("Error accessing microphone:", err)
+            errorDiv.textContent = `Microphone error: ${err.message}`
+            
+            // Show specific error solutions
+            if (err.name === 'NotAllowedError') {
+              errorDiv.innerHTML = `
+                <strong>Microphone permission denied!</strong><br>
+                Click the 🔒 icon in your browser's address bar and allow microphone access.
+              `
+            } else if (err.name === 'NotFoundError') {
+              errorDiv.innerHTML = `
+                <strong>No microphone found!</strong><br>
+                Please connect a microphone and refresh the page.
+              `
+            } else {
+              errorDiv.innerHTML = `
+                <strong>Error: ${err.message}</strong><br>
+                Try refreshing the page or use a different browser.
+              `
+            }
           }
         } else {
           // Stop recording
-          mediaRecorder.stop();
-          isRecording = false;
-          recordBtn.textContent = "Start Recording 🎤";
-          recordBtn.classList.remove("recording");
+          console.log("Stopping recording...")
+          mediaRecorder.stop()
+          isRecording = false
+          recordBtn.textContent = "Start Recording 🎤"
+          recordBtn.classList.remove("recording")
+          transcriptDiv.textContent = "Processing..."
         }
-      };
+      }
 
-      async function sendAudio(blob) {
-        const formData = new FormData();
-        formData.append("audio", blob, "audio.webm");
+      async function sendAudio(audioData) {
+        const formData = new FormData()
+
+        // Handle both Blob (from recording) and File (from upload)
+        if (audioData instanceof Blob) {
+          formData.append("audio", audioData, "audio.webm")
+        } else {
+          formData.append("audio", audioData)
+        }
 
         try {
+          transcriptDiv.textContent = "Transcribing..."
+
           const response = await fetch("/transcribe", {
             method: "POST",
             body: formData,
-          });
+          })
 
           if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || "Unknown error");
+            const errorData = await response.json()
+            throw new Error(errorData.error || "Unknown error")
           }
 
-          const data = await response.json();
-          transcriptDiv.textContent = `${data.transcript}`;
+          const data = await response.json()
+          transcriptDiv.textContent = `${data.transcript}`
         } catch (err) {
-          errorDiv.textContent = `Error: ${err.message}`;
+          errorDiv.textContent = `Error: ${err.message}`
+          transcriptDiv.textContent = ""
         }
       }
     </script>
