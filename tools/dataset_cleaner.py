@@ -43,7 +43,7 @@ def remove_audio_files(input_tsv):
     df = pd.read_csv(input_tsv, sep='\t')
     audio_files = df['path'].tolist()
 
-    progress = tqdm.tqdm(audio_files, desc=f"Removing audio files from {input_tsv}", unit="file")
+    progress = tqdm.tqdm(audio_files, desc=f"Removing unnecessary audio files from {input_tsv}", unit="file")
     removed = 0
     for audio_file in audio_files:
         mp3_file = config.COMMON_VOICE_PATH / 'clips' / f"{audio_file}"

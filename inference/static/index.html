@@ -104,9 +104,9 @@
       const uploadBtn = document.getElementById("uploadBtn")
 
       // Check browser compatibility on page load
-      window.addEventListener('load', () => {
+      window.addEventListener("load", () => {
         console.log("Page loaded, checking browser compatibility...")
-        
+
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           console.error("getUserMedia not supported")
           errorDiv.innerHTML = `
@@ -151,14 +151,14 @@
           // Start recording
           try {
             console.log("Requesting microphone access...")
-            
+
             // Simple, working getUserMedia request
             const stream = await navigator.mediaDevices.getUserMedia({
-              audio: true
+              audio: true,
             })
-            
+
             console.log("Microphone access granted!")
-            
+
             mediaRecorder = new MediaRecorder(stream)
             audioChunks = []
 
@@ -178,18 +178,17 @@
             recordBtn.textContent = "Stop Recording ⏹️"
             recordBtn.classList.add("recording")
             transcriptDiv.textContent = "Recording... Speak now!"
-            
           } catch (err) {
             console.error("Error accessing microphone:", err)
             errorDiv.textContent = `Microphone error: ${err.message}`
-            
+
             // Show specific error solutions
-            if (err.name === 'NotAllowedError') {
+            if (err.name === "NotAllowedError") {
               errorDiv.innerHTML = `
                 <strong>Microphone permission denied!</strong><br>
                 Click the 🔒 icon in your browser's address bar and allow microphone access.
               `
-            } else if (err.name === 'NotFoundError') {
+            } else if (err.name === "NotFoundError") {
               errorDiv.innerHTML = `
                 <strong>No microphone found!</strong><br>
                 Please connect a microphone and refresh the page.

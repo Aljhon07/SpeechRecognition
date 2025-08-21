@@ -22,8 +22,8 @@ class SpeechDataset(Dataset):
         self.logmel = LogMelSpectrogram()
         self.total_duration = sum(item['duration'] for item in data) / (60 * 60)
         self.apply_mask = nn.Sequential(
-            T.TimeMasking(time_mask_param=25),
-            T.FrequencyMasking(freq_mask_param=15))
+            T.TimeMasking(time_mask_param=15),
+            T.FrequencyMasking(freq_mask_param=8))
         
     def __len__(self):
         return len(self.data)
@@ -125,23 +125,70 @@ class SpeechModule:
         if self.datasets is None:
             raise ValueError("Data not loaded. Please load data first.")
         
-        overall_duration = 0
-        overall_samples = 0
-        invalidated_durations = 0
-        invalidated_samples = 0
+        # Separate stats for train and dev
+        train_duration = 0
+        train_samples = 0
+        dev_duration = 0
+        dev_samples = 0
+        excluded_train_duration = 0
+        excluded_train_samples = 0
+        excluded_dev_duration = 0
+        excluded_dev_samples = 0
+        
+        print(f"{"="*80}")
+        print(f"{'DATASET STATISTICS':^80}")
+        print(f"{"="*80}")
+        print(f"{'Bucket':<10} {'Train Samples':<15} {'Train Hours':<12} {'Dev Samples':<15} {'Dev Hours':<12} {'Status':<10}")
+        print(f"{'-'*80}")
+        
         for key, dataset in self.datasets.items():
-
-            dataset_duration = dataset['train'].total_duration + dataset['val'].total_duration
-            dataset_sample_size = len(dataset['train']) + len(dataset['val'])
-            print(f"Dataset {key}: {dataset_sample_size} samples, {dataset_duration:.2f} hours")
+            train_bucket_duration = dataset['train'].total_duration
+            train_bucket_samples = len(dataset['train'])
+            dev_bucket_duration = dataset['val'].total_duration  # 'val' contains dev data
+            dev_bucket_samples = len(dataset['val'])
+            
+            status = "EXCLUDED" if key in self.excluded_buckets else "INCLUDED"
+            
+            print(f"{key:<10} {train_bucket_samples:<15} {train_bucket_duration:<12.2f} {dev_bucket_samples:<15} {dev_bucket_duration:<12.2f} {status:<10}")
+            
             if key in self.excluded_buckets:
-                invalidated_durations += dataset_duration
-                invalidated_samples += dataset_sample_size
-            overall_duration += dataset_duration
-            overall_samples += dataset_sample_size
-
-        print(f"{"="*100}\nOverall dataset duration: {overall_duration:.2f} hours")
-        print(f"Overall dataset size: {overall_samples} samples\n{"="*100}")
+                excluded_train_duration += train_bucket_duration
+                excluded_train_samples += train_bucket_samples
+                excluded_dev_duration += dev_bucket_duration
+                excluded_dev_samples += dev_bucket_samples
+            else:
+                train_duration += train_bucket_duration
+                train_samples += train_bucket_samples
+                dev_duration += dev_bucket_duration
+                dev_samples += dev_bucket_samples
+        
+        print(f"{'-'*80}")
+        print(f"{'TRAINING SET SUMMARY':^80}")
+        print(f"{'-'*80}")
+        print(f"{'Active Train Samples:':<30} {train_samples:>10,}")
+        print(f"{'Active Train Hours:':<30} {train_duration:>10.2f}")
+        print(f"{'Excluded Train Samples:':<30} {excluded_train_samples:>10,}")
+        print(f"{'Excluded Train Hours:':<30} {excluded_train_duration:>10.2f}")
+        print(f"{'Total Train Samples:':<30} {train_samples + excluded_train_samples:>10,}")
+        print(f"{'Total Train Hours:':<30} {train_duration + excluded_train_duration:>10.2f}")
+        
+        print(f"\n{'DEVELOPMENT SET SUMMARY':^80}")
+        print(f"{'-'*80}")
+        print(f"{'Active Dev Samples:':<30} {dev_samples:>10,}")
+        print(f"{'Active Dev Hours:':<30} {dev_duration:>10.2f}")
+        print(f"{'Excluded Dev Samples:':<30} {excluded_dev_samples:>10,}")
+        print(f"{'Excluded Dev Hours:':<30} {excluded_dev_duration:>10.2f}")
+        print(f"{'Total Dev Samples:':<30} {dev_samples + excluded_dev_samples:>10,}")
+        print(f"{'Total Dev Hours:':<30} {dev_duration + excluded_dev_duration:>10.2f}")
+        
+        print(f"\n{'OVERALL SUMMARY':^80}")
+        print(f"{'-'*80}")
+        print(f"{'Active Training Data:':<30} {train_samples:>7,} samples, {train_duration:>6.2f} hours")
+        print(f"{'Active Validation Data:':<30} {dev_samples:>7,} samples, {dev_duration:>6.2f} hours")
+        print(f"{'Total Active Data:':<30} {train_samples + dev_samples:>7,} samples, {train_duration + dev_duration:>6.2f} hours")
+        print(f"{'Excluded Data:':<30} {excluded_train_samples + excluded_dev_samples:>7,} samples, {excluded_train_duration + excluded_dev_duration:>6.2f} hours")
+        print(f"{'Grand Total:':<30} {train_samples + dev_samples + excluded_train_samples + excluded_dev_samples:>7,} samples, {train_duration + dev_duration + excluded_train_duration + excluded_dev_duration:>6.2f} hours")
+        print(f"{"="*80}")
             
 if __name__ == '__main__':
     speech_module = SpeechModule()

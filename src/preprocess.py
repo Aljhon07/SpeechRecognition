@@ -55,13 +55,20 @@ class  AudioInfo():
             os.makedirs(self.output_dir)
     
     def preprocess(self, tsv_file):
-        self.tsv_file = config.OUTPUT_DIR / tsv_file + ".tsv"
+        self.tsv_file = config.OUTPUT_DIR / f"{tsv_file}.tsv"
+        
+        # Reset counters for each dataset processing
+        self.processed_files = {
+            'success': 0,
+            'fail': 0
+        }
+        
         if not os.path.exists(self.tsv_file):
             raise FileNotFoundError(f"{self.tsv_file} does not exist")
 
         df = pd.read_csv(self.tsv_file, sep='\t')
         total_rows = len(df)
-        progress = tqdm(total=total_rows, desc="Processing files")
+        progress = tqdm(total=total_rows, desc=f"Processing {tsv_file} files")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
             futures = []
@@ -160,6 +167,21 @@ class AudioTranscriptionTSV():
     def preprocess_tsv(self, file_name = 'clean'):
         file_path = config.COMMON_VOICE_PATH / f"{file_name}.tsv"
         self.save_file = config.OUTPUT_DIR / f'{file_name}.tsv'
+        
+        # Clear data from previous processing to avoid mixing datasets
+        self.data = []
+        
+        # Reset counters for this dataset
+        self.preprocess_count = {
+            'success': 0,
+            'fail': 0,
+            'missing': 0,
+            'converted': 0,
+            'error': 0,
+            'skip': 0,
+            'warning': 0
+        }
+        
         self.load_file(file_path)
 
         self.save_tsv()
@@ -168,8 +190,17 @@ class AudioTranscriptionTSV():
 
     def save_tsv(self):
         print(f"Saving TSV file to {self.save_file}")
+        
+        # Create the file if it doesn't exist
+        if not os.path.exists(self.save_file):
+            columns = ['file_name', 'orig_duration', 'duration', 'bucket_duration', 'num_frames', 'transcription']
+            df = pd.DataFrame(columns=columns)
+            df.to_csv(self.save_file, sep='\t', index=False)
+        
+        # Read existing file
         df = pd.read_csv(self.save_file, sep='\t')
 
+        # Create new data DataFrame
         new_data_df = pd.DataFrame(self.data, columns=['file_name', 'transcription'])
 
         df[['file_name', 'transcription']] = new_data_df
@@ -236,7 +267,7 @@ class AudioTranscriptionTSV():
                     local_results['warning'] += 1
                 return local_results
 
-            transcription = normalize_text(transcription)
+            # transcription = normalize_text(transcription)
 
             if os.path.exists(wav_file):
                 if os.path.exists(audio_file):
@@ -360,6 +391,10 @@ class BucketAudio():
             progress.update(1)
     
     def group_duration(self):
+        # Clear buckets before processing to ensure clean state
+        self.train_buckets = {}
+        self.dev_buckets = {}
+        
         # Process train data
         self.group_duration_for_file(self.train_tsv_file, self.train_buckets, "train")
         

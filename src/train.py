@@ -296,7 +296,7 @@ def main():
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=10, final_div_factor=100, pct_start=0.3, cycle_momentum=False)
 
     trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device, total_steps=total_steps)
-    trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=True, sort=True, checkpoint_name="checkpoint_epoch_8_train_2.7348.pth")
+    trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=True, sort=True, checkpoint_name="checkpoint_epoch_2_train_7.1314.pth")
     
 if __name__ == "__main__":
     main()
