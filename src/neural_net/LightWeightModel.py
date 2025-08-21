@@ -34,16 +34,26 @@ class LightWeightModel(nn.Module):
             ActDropNormCNN1D(128, dropout),
         )
 
-        self.dense = nn.Sequential(
-            nn.Linear(128, 128),
+        # Simplified dense network with residual connection
+        self.dense1 = nn.Sequential(
+            nn.Linear(128, 192),
+            nn.LayerNorm(192),
+            nn.GELU(),
+            nn.Dropout(dropout)
+        )
+        
+        self.dense2 = nn.Sequential(
+            nn.Linear(192, 128),
             nn.LayerNorm(128),
             nn.GELU(),
             nn.Dropout(dropout)
- 
         )
         
+        # Projection for residual connection
+        self.residual_proj = nn.Linear(128, 128)
+        
         self.bigru = nn.GRU(input_size=128, hidden_size=512,
-                            num_layers=num_layers, dropout=0.0,
+                            num_layers=num_layers, dropout=dropout,
                             bidirectional=True)
         
         self.layer_norm2 = nn.LayerNorm(hidden_size * 2)
@@ -62,7 +72,13 @@ class LightWeightModel(nn.Module):
         x = self.cnn(x) # batch, time, feature
         if verbose:
             print(f"After CNN Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
-        x = self.dense(x) # batch, time, feature
+        
+        # Simplified dense with residual connection
+        residual = self.residual_proj(x)  # Store for residual connection
+        x = self.dense1(x)
+        x = self.dense2(x)
+        x = x + residual  # Residual connection
+        
         if verbose:
             print(f"After Dense Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
         x = x.transpose(0, 1) # time, batch, feature
@@ -70,7 +86,7 @@ class LightWeightModel(nn.Module):
             print(f"After Transpose Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
         out, hidden = self.bigru(x, hidden)
         if verbose:
-            print(f"After LSTM Shape: {out.shape} | Contiguous: {out.is_contiguous()}")
+            print(f"After GRU Shape: {out.shape} | Contiguous: {out.is_contiguous()}")
         x = self.dropout2(F.gelu(self.layer_norm2(out)))  # (time, batch, n_class)
         if verbose:
             print(f"After Layer Norm Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
