@@ -10,7 +10,9 @@ import torch.nn.functional as F
 import config
 import uuid
 import winsound
+from google import genai
 
+client = genai.Client(api_key=config.GENAI_API_KEY)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = Model()
 LOCAL_MODEL_PATH = config.MODEL_DIR / 'OneCycle'
@@ -51,7 +53,21 @@ def inference(file_path):
         raw_prediction = utils.ctc_decoder(predicted_ids.tolist())
         # print(raw_prediction)
         decoded_pred = lc.decode(raw_prediction, str(LOCAL_MODEL_PATH / f"{config.LANGUAGE}.model"))
-        return decoded_pred
+
+        pred = decoded_pred
+        try:
+            response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=f"Correct the grammar and spelling of this speech recognition output so that it makes sense: '{decoded_pred}'. Return only the corrected text without explanations.",
+    )
+            pred = response.text
+        except Exception as e:
+            print(f"Error during AI enhancement: {e}")
+            response = decoded_pred
+
+        print(f"Orig: {decoded_pred}")
+        print(f"AI Enhanced: {pred}")
+        return pred
 
 if __name__ == '__main__':
     # path = config.COMMON_VOICE_PATH / 'clips' / 'common_voice_en_16759015.mp3'

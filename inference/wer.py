@@ -33,7 +33,7 @@ def evaluate_model(tsv_file):
             continue
 
         hypothesis = inference(audio_file)
-
+        hypothesis = normalize_text(hypothesis)
         if hypothesis == "" or hypothesis == None or reference == "" or reference == None:
             print(f"Reference: {reference} | Hypothesis: {hypothesis} | WER: 1.0")
             continue
