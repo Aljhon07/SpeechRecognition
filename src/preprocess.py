@@ -34,7 +34,7 @@ class LogMelSpectrogram(nn.Module):
     def forward(self, x):
         x = rms_normalize(x)
         spec = self.mel_spectrogram(x)
-        spec = np.log10(spec + 1e-8)
+        spec = torch.log10(spec + 1e-8)
         spec = mean_norm(spec)
         return spec
 
@@ -88,15 +88,19 @@ class  AudioInfo():
                             self.processed_files['success'] += 1
                         else:
                             self.processed_files['fail'] += 1
+                    
+                except Exception as e:
+                    with self.count_lock:
+                        self.processed_files['fail'] += 1
+                    tqdm.write(f"Error processing file: {e}")
 
+                finally:
                     progress.set_postfix({
                     "Success": self.processed_files['success'],
                     "Fail": self.processed_files['fail'],
                 })
                     
                     progress.update(1)
-                except Exception as e:
-                    tqdm.write(f"Error processing file: {e}")
 
         df.to_csv(self.tsv_file, sep='\t', index=False)
 
@@ -267,7 +271,7 @@ class AudioTranscriptionTSV():
                     local_results['warning'] += 1
                 return local_results
 
-            # transcription = normalize_text(transcription)
+            transcription = normalize_text(transcription)
 
             if os.path.exists(wav_file):
                 if os.path.exists(audio_file):

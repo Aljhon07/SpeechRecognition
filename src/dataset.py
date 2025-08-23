@@ -51,7 +51,7 @@ class SpeechDataset(Dataset):
         return audio
     
 class SpeechModule:
-    def __init__(self, data=None, excluded_buckets=['0.0', '15.0', '20.0', '30.0']):
+    def __init__(self, data=None, excluded_buckets=['0.0', '30.0']):
         self.train_data = None
         self.dev_data = None
         self.bucket = BucketAudio()

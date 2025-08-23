@@ -24,7 +24,7 @@ class SpeechTrainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.device = device
-        self.check_sample = False
+        self.check_sample = True
         self.log_file = config.LOG_DIR / 'train_log.json'
         self.overall_step_count = 0
         self.total_steps = total_steps

@@ -59,7 +59,8 @@ class LightWeightModel(nn.Module):
         self.layer_norm2 = nn.LayerNorm(hidden_size * 2)
         self.dropout2 = nn.Dropout(dropout)
         self.final_fc = nn.Linear(hidden_size * 2, num_classes)
-        self.final_fc.bias.data[0] = -5.0
+        self.final_fc.bias.data.fill_(-3.0)
+        self.final_fc.bias.data[0] = 0.0  
 
     def _init_hidden(self, batch_size, device):
         n, hs = self.num_layers, self.hidden_size

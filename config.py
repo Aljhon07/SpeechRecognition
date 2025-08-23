@@ -3,7 +3,8 @@ from pathlib import Path
 # Get the absolute path to the current config file's directory
 BASE_DIR = Path(__file__).parent.resolve()
 LANGUAGE = "en"
-GENAI_API_KEY = "AIzaSyCy9YBM9s8K3jTnk4jvs7jMVz8ln5CJnZM"
+# GENAI_API_KEY = "AIzaSyCy9YBM9s8K3jTnk4jvs7jMVz8ln5CJnZM"
+GENAI_API_KEY = "x"
 
 COMMON_VOICE_PATH = BASE_DIR / "commonvoice" / LANGUAGE
 OUTPUT_DIR = BASE_DIR / "output" / LANGUAGE
