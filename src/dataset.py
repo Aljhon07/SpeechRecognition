@@ -8,7 +8,6 @@ import torchaudio
 import torch
 from src.preprocess import LogMelSpectrogram
 from tools.utils import double_vad
-import winsound
 from tools import language_corpus as lc
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn

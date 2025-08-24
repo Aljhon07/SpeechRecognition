@@ -1,6 +1,44 @@
 import torch
 import torchaudio
-import winsound
+import platform
+
+def play_sound(file_path):
+    """Cross-platform sound playback function"""
+    try:
+        if platform.system() == 'Windows':
+            # Windows - use winsound
+            import winsound
+            winsound.PlaySound(str(file_path), winsound.SND_FILENAME)
+        else:
+            # Linux/Docker - use system commands
+            import subprocess
+            import os
+            
+            file_path = str(file_path)
+            if not os.path.exists(file_path):
+                print(f"Audio file not found: {file_path}")
+                return
+                
+            # Try different audio players available in Linux
+            players = ['aplay', 'paplay', 'ffplay', 'play']
+            
+            for player in players:
+                try:
+                    if player == 'ffplay':
+                        subprocess.run([player, '-nodisp', '-autoexit', file_path], 
+                                     check=True, capture_output=True, timeout=10)
+                    else:
+                        subprocess.run([player, file_path], 
+                                     check=True, capture_output=True, timeout=10)
+                    print(f"Played audio using {player}")
+                    return
+                except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+                    continue
+            
+            print("No audio player available - audio playback skipped")
+            
+    except Exception as e:
+        print(f"Error playing sound: {e}")
 import json
 import torchaudio.transforms as T
 import torchaudio.functional as F

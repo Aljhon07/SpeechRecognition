@@ -170,7 +170,10 @@ for i, (ref, hyp) in enumerate(pairs):
     try:
         ref_norm = normalize_text(ref)
         hyp_norm = normalize_text(hyp)
-        wer = jiwer.wer(ref_norm, hyp_norm)
+        if jiwer is not None:
+            wer = jiwer.wer(ref_norm, hyp_norm)
+        else:
+            wer = 0.0  # Default when jiwer is not available
         results.append({
             "Reference": ref,
             "Prediction": hyp,

@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  speech-recognition:
+    build: .
+    container_name: speech-recognition-prod
+    ports:
+      - "8080:8080"
+    volumes:
+      # Only mount data directories for production
+      - ./output:/app/output:ro # Read-only for model files
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+      - ./commonvoice:/app/commonvoice:ro # Read-only for dataset
+    environment:
+      - PYTHONPATH=/app
+      - FLASK_ENV=production
+      - FLASK_APP=inference/app.py
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G

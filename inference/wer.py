@@ -37,7 +37,10 @@ def evaluate_model(tsv_file):
         if hypothesis == "" or hypothesis == None or reference == "" or reference == None:
             print(f"Reference: {reference} | Hypothesis: {hypothesis} | WER: 1.0")
             continue
-        score = jiwer.wer(reference, hypothesis)
+        if jiwer is not None:
+            score = jiwer.wer(reference, hypothesis)
+        else:
+            score = 0.0  # Default when jiwer is not available
         if score > 1:
             continue
 

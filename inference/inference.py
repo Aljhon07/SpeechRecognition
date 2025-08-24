@@ -1,15 +1,12 @@
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from inference.models.Curriculum.LightWeightModel import LightWeightModel as Model
 from src.preprocess import LogMelSpectrogram
 import os
 from tools import audio, utils, language_corpus as lc
 import torchaudio
-import torch.nn.functional as F
 import config
 import uuid
-import winsound
 from google import genai
 
 client = genai.Client(api_key=config.GENAI_API_KEY)
@@ -29,6 +26,9 @@ log_mel = LogMelSpectrogram()
 def inference(file_path):
     # print(f"Using Model: {checkpoint_path}")
     # print(f"Loading audio file: {file_path}")
+
+    # Play the audio file for preview
+    utils.play_sound(file_path)
 
     id = uuid.uuid4().hex
     converted_file = audio.to_wav(file_path,  config.UPLOAD_DIR / f"{id}.wav")
@@ -57,13 +57,13 @@ def inference(file_path):
         pred = decoded_pred
         try:
             response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=f"Correct the grammar and spelling of this speech recognition output so that it makes sense: '{decoded_pred}'. Return only the corrected text without explanations.",
-    )
+                model="gemini-2.5-flash",
+                contents=f"Correct the grammar and spelling of this speech recognition output so that it makes sense: '{decoded_pred}'. Return only the corrected text without explanations.",
+            )
             pred = response.text
         except Exception as e:
             print(f"Error during AI enhancement: {e}")
-            response = decoded_pred
+            pred = decoded_pred
 
         print(f"Orig: {decoded_pred}")
         print(f"AI Enhanced: {pred}")

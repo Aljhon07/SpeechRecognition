@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  speech-recognition-dev:
+    build: .
+    container_name: speech-recognition-dev
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount data directories
+      - ./output:/app/output
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+      - ./commonvoice:/app/commonvoice
+      # Mount source directories for live development
+      - ./src:/app/src
+      - ./inference:/app/inference
+      - ./tools:/app/tools
+      - ./config.py:/app/config.py
+    environment:
+      - PYTHONPATH=/app
+      - FLASK_ENV=development
+      - FLASK_APP=inference/app.py
+      - FLASK_DEBUG=1
+    restart: unless-stopped
+    command: ["python", "inference/app.py"]
+
+  # Training service for development
+  speech-training-dev:
+    build: .
+    container_name: speech-training-dev
+    volumes:
+      - ./output:/app/output
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+      - ./commonvoice:/app/commonvoice
+      - ./src:/app/src
+      - ./inference:/app/inference
+      - ./tools:/app/tools
+      - ./config.py:/app/config.py
+    environment:
+      - PYTHONPATH=/app
+    command: ["python", "src/train.py"]
+    profiles:
+      - training

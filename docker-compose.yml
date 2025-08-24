@@ -1,0 +1,68 @@
+version: "3.8"
+
+services:
+  speech-recognition:
+    build: .
+    container_name: speech-recognition-app
+    ports:
+      - "8080:8080"
+    volumes:
+      # Data directories (always mounted)
+      - ./output:/app/output
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+      - ./commonvoice:/app/commonvoice
+      # Source code directories (for development - comment out for production)
+      - ./src:/app/src
+      - ./inference:/app/inference
+      - ./tools:/app/tools
+      - ./config.py:/app/config.py
+    environment:
+      - PYTHONPATH=/app
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - FLASK_APP=inference/app.py
+      - FLASK_DEBUG=${FLASK_DEBUG:-0}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Full training pipeline (preprocessing + training)
+  training:
+    build: .
+    container_name: speech-training
+    volumes:
+      - ./output:/app/output
+      - ./logs:/app/logs
+      - ./commonvoice:/app/commonvoice
+      - ./src:/app/src
+      - ./inference:/app/inference
+      - ./tools:/app/tools
+      - ./config.py:/app/config.py
+      - ./main.py:/app/main.py
+    environment:
+      - PYTHONPATH=/app
+    command: ["python", "main.py"]  # Runs both preprocess() and train.main()
+    profiles:
+      - training
+
+  # Preprocessing only service
+  preprocess:
+    build: .
+    container_name: speech-preprocess
+    volumes:
+      - ./output:/app/output
+      - ./logs:/app/logs
+      - ./commonvoice:/app/commonvoice
+      - ./src:/app/src
+      - ./inference:/app/inference
+      - ./tools:/app/tools
+      - ./config.py:/app/config.py
+    environment:
+      - PYTHONPATH=/app
+    command: ["python", "-c", "from src.preprocess import preprocess; preprocess()"]
+    profiles:
+      - preprocess
