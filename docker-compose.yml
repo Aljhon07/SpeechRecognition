@@ -45,7 +45,7 @@ services:
       - ./main.py:/app/main.py
     environment:
       - PYTHONPATH=/app
-    command: ["python", "main.py"]  # Runs both preprocess() and train.main()
+    command: ["python", "main.py"] # Runs both preprocess() and train.main()
     profiles:
       - training
 
@@ -63,6 +63,7 @@ services:
       - ./config.py:/app/config.py
     environment:
       - PYTHONPATH=/app
-    command: ["python", "-c", "from src.preprocess import preprocess; preprocess()"]
+    command:
+      ["python", "-c", "from src.preprocess import preprocess; preprocess()"]
     profiles:
       - preprocess

@@ -16,9 +16,10 @@ import json
 from tqdm import tqdm
 
 class SpeechTrainer:
-    def __init__(self, model, loaders, criterion, optimizer, scheduler, device, total_steps):
+    def __init__(self, model, loaders, criterion, optimizer, scheduler, device, total_steps, speech_module=None):
         self.model = model
         self.loaders = loaders
+        self.speech_module = speech_module  # Add speech_module for epoch progress updates
         self.criterion = criterion
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -56,6 +57,14 @@ class SpeechTrainer:
 
         for epoch in range(start_epoch, num_epochs):
             epoch += 1
+            
+            # Update augmentation parameters based on epoch progress
+            if self.speech_module is not None:
+                for bucket_key in self.speech_module.datasets:
+                    self.speech_module.datasets[bucket_key]['train'].update_epoch_progress(epoch, num_epochs)
+                    self.speech_module.datasets[bucket_key]['val'].update_epoch_progress(epoch, num_epochs)
+                print(f"Updated augmentation for epoch {epoch}/{num_epochs}")
+            
             buckets = list(self.loaders.keys())
             # random.shuffle(buckets)
 
@@ -295,7 +304,7 @@ def main():
     optimizer = optim.AdamW(model.parameters(), lr=config.H_PARAMS["BASE_LR"])
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=10, final_div_factor=100, pct_start=0.2, cycle_momentum=False)
 
-    trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device, total_steps=total_steps)
+    trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device, total_steps=total_steps, speech_module=speech_module)
     trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=False, sort=True, checkpoint_name="checkpoint_epoch_2_train_7.1314.pth")
     
 if __name__ == "__main__":

@@ -14,10 +14,11 @@ import torch.nn as nn
 import torchaudio.transforms as T
 
 class SpeechDataset(Dataset):
-    def __init__(self, data, augmented=False, augmented_prob=0.5):
+    def __init__(self, data, augmented=False, augmented_prob=0.5, epoch_progress=0.0):
         self.data = data
         self.augmented = augmented
         self.augmented_prob = augmented_prob
+        self.epoch_progress = epoch_progress
         self.logmel = LogMelSpectrogram()
         self.total_duration = sum(item['duration'] for item in data) / (60 * 60)
         self.apply_mask = nn.Sequential(
@@ -35,7 +36,16 @@ class SpeechDataset(Dataset):
         spec = self.logmel(waveform)
 
         if self.augmented and random.random() < self.augmented_prob:
-            spec = self.apply_mask(spec)
+            # Progressive SpecAugment based on epoch progress
+            # Start with stronger augmentation, reduce as training progresses
+            time_mask_param = max(5, int(15 * (1 - self.epoch_progress * 0.5)))
+            freq_mask_param = max(3, int(8 * (1 - self.epoch_progress * 0.5)))
+            
+            progressive_mask = nn.Sequential(
+                T.TimeMasking(time_mask_param=time_mask_param),
+                T.FrequencyMasking(freq_mask_param=freq_mask_param)
+            )
+            spec = progressive_mask(spec)
 
         spec_len = spec.shape[2]
         transcription = data['transcription']
@@ -43,6 +53,15 @@ class SpeechDataset(Dataset):
         labels_len = len(labels)
 
         return spec.squeeze(0).transpose(0,1).contiguous(), torch.tensor(labels, dtype=torch.long), torch.tensor(spec_len, dtype=torch.long), torch.tensor(labels_len, dtype=torch.long), file_name
+    
+    def update_epoch_progress(self, epoch, total_epochs):
+        """Update epoch progress and adjust augmentation intensity"""
+        self.epoch_progress = epoch / total_epochs
+        
+        # Reduce augmentation probability as training progresses
+        # Start at 0.5, reduce to 0.2 at the end
+        if self.augmented:
+            self.augmented_prob = max(0.2, 0.5 * (1 - self.epoch_progress * 0.6))
     
     def preprocess(self, audio):
         audio = double_vad(audio)
@@ -111,6 +130,17 @@ class SpeechModule:
         
         self.get_dataset_stats()
         return self.loaders
+    
+    def update_epoch_progress(self, epoch, total_epochs):
+        """Update epoch progress for all datasets to adjust augmentation"""
+        for key in self.datasets:
+            if 'train' in self.datasets[key]:
+                self.datasets[key]['train'].update_epoch_progress(epoch, total_epochs)
+            if 'val' in self.datasets[key]:
+                self.datasets[key]['val'].update_epoch_progress(epoch, total_epochs)
+        
+        progress = epoch / total_epochs
+        print(f"Updated augmentation for epoch {epoch}/{total_epochs} (progress: {progress:.2f})")
 
     def collate_fn(self, batch):
         specs, labels, spec_lens, label_lens, file_name = zip(*batch)
