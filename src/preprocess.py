@@ -14,7 +14,71 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
 import threading
+from transformers import WhisperFeatureExtractor
+import logging
 
+# Set up logging for shape tracking
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class WhisperLogMelSpectrogram(nn.Module):
+    def __init__(self, sr=16000):
+        super(WhisperLogMelSpectrogram, self).__init__()
+        self.sr = sr
+        # Use WhisperFeatureExtractor for consistent preprocessing
+        self.feature_extractor = WhisperFeatureExtractor.from_pretrained('openai/whisper-tiny')
+        
+        # Verify that the sampling rate matches
+        assert self.feature_extractor.sampling_rate == sr, f"Sample rate mismatch: expected {sr}, got {self.feature_extractor.sampling_rate}"
+        logger.info(f"WhisperLogMelSpectrogram initialized - Sample rate: {sr}, Feature size: {self.feature_extractor.feature_size}")
+        
+    def forward(self, x):
+        """
+        Convert audio waveform to Whisper-compatible log mel spectrogram
+        
+        Args:
+            x: Audio waveform tensor (batch_size, channels, time) or (channels, time)
+        
+        Returns:
+            Log mel spectrogram tensor (batch_size, n_mels=80, time_frames)
+        """
+        logger.debug(f"WhisperLogMelSpectrogram input shape: {x.shape}")
+        
+        # Handle different input shapes
+        if x.dim() == 3:  # (batch_size, channels, time)
+            batch_size = x.shape[0]
+            logger.debug(f"Processing batch input - batch_size: {batch_size}")
+            # Process each item in batch
+            results = []
+            for i in range(batch_size):
+                audio = x[i].squeeze().numpy()  # Remove channel dim and convert to numpy
+                logger.debug(f"Batch item {i} audio shape: {audio.shape}")
+                features = self.feature_extractor(audio, sampling_rate=self.sr, return_tensors="pt")
+                logger.debug(f"Batch item {i} features shape: {features['input_features'].shape}")
+                results.append(features['input_features'])
+            result = torch.cat(results, dim=0)  # (batch_size, n_mels, time_frames)
+            logger.debug(f"WhisperLogMelSpectrogram batch output shape: {result.shape}")
+            return result
+            
+        elif x.dim() == 2:  # (channels, time)
+            audio = x.squeeze().numpy()  # Remove channel dim and convert to numpy
+            logger.debug(f"Single input audio shape after squeeze: {audio.shape}")
+            features = self.feature_extractor(audio, sampling_rate=self.sr, return_tensors="pt")
+            result = features['input_features']  # (1, n_mels, time_frames)
+            logger.debug(f"WhisperLogMelSpectrogram single output shape: {result.shape}")
+            return result
+            
+        elif x.dim() == 1:  # (time,)
+            audio = x.numpy()  # Convert to numpy
+            logger.debug(f"1D input audio shape: {audio.shape}")
+            features = self.feature_extractor(audio, sampling_rate=self.sr, return_tensors="pt")
+            result = features['input_features']  # (1, n_mels, time_frames)
+            logger.debug(f"WhisperLogMelSpectrogram 1D output shape: {result.shape}")
+            return result
+        else:
+            raise ValueError(f"Unsupported input shape: {x.shape}")
+
+# Keep the old class for backward compatibility if needed
 class LogMelSpectrogram(nn.Module):
     def __init__(self, n_fft=400, hop_length=160, win_length=400, n_mels=80, sr=16000):
         super(LogMelSpectrogram, self).__init__()
@@ -42,9 +106,10 @@ class LogMelSpectrogram(nn.Module):
         return spec
 
 class  AudioInfo():
-    def __init__(self, output_dir = config.OUTPUT_DIR / 'spectrograms', sr = 16000, log_mel_spec = LogMelSpectrogram()):
+    def __init__(self, output_dir = config.OUTPUT_DIR / 'spectrograms', sr = 16000, log_mel_spec = None):
         self.sr = sr
-        self.log_mel_spec = log_mel_spec
+        # Use WhisperLogMelSpectrogram by default for Whisper compatibility
+        self.log_mel_spec = log_mel_spec if log_mel_spec is not None else WhisperLogMelSpectrogram(sr=sr)
         self.tsv_file = None
         self.output_dir = output_dir
         self.processed_files = {

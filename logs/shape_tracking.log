@@ -1,0 +1,78 @@
+2025-08-25 05:34:17,606 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-25 05:35:32,902 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 06:45:51,202 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-25 06:46:52,192 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-25 06:46:54,153 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 06:46:54,469 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 06:46:54,785 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 06:46:55,620 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 06:46:57,671 - src.neural_net.LightWeightModel - INFO - LightWeightModel input shape: torch.Size([32, 80, 3000])
+2025-08-25 06:47:15,100 - src.neural_net.LightWeightModel - INFO - After Whisper encoder shape: torch.Size([32, 1500, 384])
+2025-08-25 06:54:08,073 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-25 06:54:10,361 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 06:54:10,783 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 06:54:11,100 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 06:54:11,454 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 06:54:13,144 - src.neural_net.LightWeightModel - INFO - LightWeightModel input shape: torch.Size([32, 80, 3000])
+2025-08-25 06:54:26,833 - src.neural_net.LightWeightModel - INFO - After Whisper encoder shape: torch.Size([32, 1500, 384])
+2025-08-25 07:42:13,920 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-25 07:44:06,189 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-25 11:04:47,699 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-25 12:25:00,460 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-25 12:25:03,017 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 12:25:03,333 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 12:25:04,182 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 12:25:04,496 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 12:25:05,326 - src.neural_net.LightWeightModel - INFO - LightWeightModel input shape: torch.Size([8, 80, 3000])
+2025-08-25 12:25:26,547 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([1500, 8, 5000])
+2025-08-25 12:25:26,571 - src.train - INFO - Step 1 shape verification - Input: torch.Size([8, 80, 3000]), Output: torch.Size([1500, 8, 5000])
+2025-08-25 12:25:26,572 - src.train - INFO - Step 1 time dimension check - Output time: 1500, Input time: 3000
+2025-08-25 13:05:21,870 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-25 13:05:34,308 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 13:05:34,852 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 13:05:35,364 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 13:05:35,925 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 13:05:41,859 - src.neural_net.LightWeightModel - INFO - LightWeightModel input shape: torch.Size([8, 80, 3000])
+2025-08-25 13:10:51,986 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([1500, 8, 5000])
+2025-08-25 13:10:56,907 - src.train - INFO - Step 1 shape verification - Input: torch.Size([8, 80, 3000]), Output: torch.Size([1500, 8, 5000])
+2025-08-25 13:10:56,998 - src.train - INFO - Step 1 time dimension check - Output time: 1500, Input time: 3000
+2025-08-25 13:20:52,546 - src.neural_net.LightWeightModel - INFO - LightWeightModel input shape: torch.Size([8, 80, 3000])
+2025-08-25 13:21:13,192 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([1500, 8, 5000])
+2025-08-25 13:22:05,318 - src.neural_net.LightWeightModel - INFO - LightWeightModel input shape: torch.Size([8, 80, 3000])
+2025-08-25 13:22:13,296 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([1500, 8, 5000])
+2025-08-25 13:23:49,644 - src.neural_net.LightWeightModel - INFO - LightWeightModel input shape: torch.Size([8, 80, 3000])
+2025-08-25 13:24:00,264 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([1500, 8, 5000])
+2025-08-25 13:26:13,111 - src.neural_net.LightWeightModel - INFO - LightWeightModel input shape: torch.Size([8, 80, 3000])
+2025-08-25 13:26:26,756 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([1500, 8, 5000])
+2025-08-25 13:51:30,068 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-25 13:51:34,385 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 14:00:48,838 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-25 14:00:51,380 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 14:00:51,661 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 14:00:51,953 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 14:00:52,263 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 14:00:53,025 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 14:00:54,830 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 14:00:55,102 - src.neural_net.LightWeightModel - INFO - LightWeightModel input shape: torch.Size([8, 80, 3000])
+2025-08-25 14:32:37,086 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 14:33:47,148 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 14:49:00,035 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 14:55:15,228 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 14:56:32,844 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 15:00:40,136 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-25 15:00:42,290 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 15:00:42,578 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 15:00:42,911 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 15:00:43,195 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 15:00:44,621 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 15:00:46,920 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 15:00:48,255 - src.neural_net.LightWeightModel - INFO - LightWeightModel input shape: torch.Size([8, 80, 3000])
+2025-08-25 15:24:01,885 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 15:27:46,255 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 15:47:19,501 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-25 15:47:22,231 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 15:47:22,527 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 15:47:22,809 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 15:47:23,098 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 15:47:23,961 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-25 15:47:25,999 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80

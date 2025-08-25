@@ -1,17 +1,20 @@
 from torch.utils.data import Dataset, DataLoader
-from src.preprocess import BucketAudio
+from src.preprocess import BucketAudio, WhisperLogMelSpectrogram
 import os
 import config
 import json
 import random
 import torchaudio
 import torch
-from src.preprocess import LogMelSpectrogram
 from tools.utils import double_vad
 from tools import language_corpus as lc
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
 import torchaudio.transforms as T
+import logging
+
+# Set up logging for dataset shape tracking
+logger = logging.getLogger(__name__)
 
 class SpeechDataset(Dataset):
     def __init__(self, data, augmented=False, augmented_prob=0.5, epoch_progress=0.0):
@@ -19,11 +22,13 @@ class SpeechDataset(Dataset):
         self.augmented = augmented
         self.augmented_prob = augmented_prob
         self.epoch_progress = epoch_progress
-        self.logmel = LogMelSpectrogram()
+        # Use WhisperLogMelSpectrogram for consistent preprocessing with model
+        self.logmel = WhisperLogMelSpectrogram()
         self.total_duration = sum(item['duration'] for item in data) / (60 * 60)
         self.apply_mask = nn.Sequential(
             T.TimeMasking(time_mask_param=15),
             T.FrequencyMasking(freq_mask_param=8))
+        self.verbose = True
         
     def __len__(self):
         return len(self.data)
@@ -34,8 +39,20 @@ class SpeechDataset(Dataset):
         file_name = data['file_name']
         waveform, sr = torchaudio.load(config.WAVS_PATH / f"{file_name}.wav")
         spec = self.logmel(waveform)
+        if self.verbose:
+            print(f"Dataset[{idx}] - Loaded waveform shape: {waveform.shape}, sr: {sr}")
+            print(f"Dataset[{idx}] - After logmel shape: {spec.shape}")
+
+        # WhisperLogMelSpectrogram returns shape (1, n_mels, time_frames)
+        # Remove the batch dimension for single samples
+        if spec.dim() == 3 and spec.shape[0] == 1:
+            spec = spec.squeeze(0)  # Now shape is (n_mels, time_frames)
+            if self.verbose:
+                print(f"Dataset[{idx}] - After squeeze shape: {spec.shape}")
 
         if self.augmented and random.random() < self.augmented_prob:
+            if self.verbose:
+                print(f"Dataset[{idx}] - Applying augmentation")
             # Progressive SpecAugment based on epoch progress
             # Start with stronger augmentation, reduce as training progresses
             time_mask_param = max(5, int(15 * (1 - self.epoch_progress * 0.5)))
@@ -45,14 +62,32 @@ class SpeechDataset(Dataset):
                 T.TimeMasking(time_mask_param=time_mask_param),
                 T.FrequencyMasking(freq_mask_param=freq_mask_param)
             )
-            spec = progressive_mask(spec)
+            # Add batch dimension for masking, then remove it
+            spec_before_aug = spec.shape
+            spec = progressive_mask(spec.unsqueeze(0)).squeeze(0)
+            if self.verbose:
+                print(f"Dataset[{idx}] - Augmentation: {spec_before_aug} -> {spec.shape}")
 
-        spec_len = spec.shape[2]
+        # spec should now be (n_mels, time_frames)
+        spec_len = spec.shape[1]  # time dimension is now at index 1
+        if self.verbose:
+            print(f"Dataset[{idx}] - Spec length: {spec_len}")
+
         transcription = data['transcription']
         labels = lc.encode(transcription)
         labels_len = len(labels)
+        if self.verbose:
+            print(f"Dataset[{idx}] - Labels length: {labels_len}")
 
-        return spec.squeeze(0).transpose(0,1).contiguous(), torch.tensor(labels, dtype=torch.long), torch.tensor(spec_len, dtype=torch.long), torch.tensor(labels_len, dtype=torch.long), file_name
+        # Transpose for model compatibility: (n_mels, time) -> (time, n_mels)
+        final_spec = spec.transpose(0, 1).contiguous()
+        if self.verbose:
+            print(f"Dataset[{idx}] - Final spec shape (time, n_mels): {final_spec.shape}")
+
+        if self.verbose:
+            self.verbose = False  # Only log for the first item
+
+        return final_spec, torch.tensor(labels, dtype=torch.long), torch.tensor(spec_len, dtype=torch.long), torch.tensor(labels_len, dtype=torch.long), file_name
     
     def update_epoch_progress(self, epoch, total_epochs):
         """Update epoch progress and adjust augmentation intensity"""
@@ -65,6 +100,7 @@ class SpeechDataset(Dataset):
     
     def preprocess(self, audio):
         audio = double_vad(audio)
+        # WhisperLogMelSpectrogram handles the full preprocessing pipeline
         audio = self.logmel(audio)
         return audio
     
@@ -144,11 +180,13 @@ class SpeechModule:
 
     def collate_fn(self, batch):
         specs, labels, spec_lens, label_lens, file_name = zip(*batch)
-
+        
         specs = pad_sequence(specs, batch_first=True)
         labels = pad_sequence(labels, batch_first=True)
 
-        return specs.transpose(1, 2), labels, torch.tensor(spec_lens, dtype=torch.long), torch.tensor(label_lens, dtype=torch.long), file_name
+        # Transpose specs from (batch, time, n_mels) to (batch, n_mels, time) for model input
+        final_specs = specs.transpose(1, 2)
+        return final_specs, labels, torch.tensor(spec_lens, dtype=torch.long), torch.tensor(label_lens, dtype=torch.long), file_name
     
     def get_dataset_stats(self):
         if self.datasets is None:
@@ -164,9 +202,9 @@ class SpeechModule:
         excluded_dev_duration = 0
         excluded_dev_samples = 0
         
-        print(f"{"="*80}")
+        print(f"{'='*80}")
         print(f"{'DATASET STATISTICS':^80}")
-        print(f"{"="*80}")
+        print(f"{'='*80}")
         print(f"{'Bucket':<10} {'Train Samples':<15} {'Train Hours':<12} {'Dev Samples':<15} {'Dev Hours':<12} {'Status':<10}")
         print(f"{'-'*80}")
         
@@ -217,7 +255,7 @@ class SpeechModule:
         print(f"{'Total Active Data:':<30} {train_samples + dev_samples:>7,} samples, {train_duration + dev_duration:>6.2f} hours")
         print(f"{'Excluded Data:':<30} {excluded_train_samples + excluded_dev_samples:>7,} samples, {excluded_train_duration + excluded_dev_duration:>6.2f} hours")
         print(f"{'Grand Total:':<30} {train_samples + dev_samples + excluded_train_samples + excluded_dev_samples:>7,} samples, {train_duration + dev_duration + excluded_train_duration + excluded_dev_duration:>6.2f} hours")
-        print(f"{"="*80}")
+        print(f"{'='*80}")
             
 if __name__ == '__main__':
     speech_module = SpeechModule()

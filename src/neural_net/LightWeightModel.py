@@ -3,7 +3,12 @@ import torch.nn as nn
 from torch.nn import functional as F
 from transformers import WhisperModel
 import config 
-verbose = config.H_PARAMS["VERBOSE"]
+import logging
+import torch.nn.utils.rnn as rnn_utils
+
+# Set up logging for model shape tracking
+logger = logging.getLogger(__name__)
+verbose = True  # Force verbose on for debugging
 
 class LightWeightModel(nn.Module):
 
@@ -43,44 +48,48 @@ class LightWeightModel(nn.Module):
         n, hs = self.num_layers, self.hidden_size
         return torch.zeros(n * 2, batch_size, hs, device=device)
 
-    def forward(self, x, hidden=None):
-        # Input should be (batch, n_mels=80, time)
+    def forward(self, x, lengths, hidden=None):
+        # Input should be (batch, n_mels=80, time) - from collate_fn
         if verbose:
-            print(f"Input Shape: {x.shape}")
-        
-        # Ensure input is (batch, n_mels, time) format for Whisper
-        if x.dim() == 4:
-            x = x.squeeze(1)  # Remove channel dimension if present
-        
+            logger.debug(f"Model forward - Input shape: {x.shape}")
+
         # Forward through frozen Whisper encoder
         with torch.no_grad():
             whisper_outputs = self.whisper_encoder(x)
             whisper_features = whisper_outputs.last_hidden_state  # (batch, time, 384)
-        
+
         if verbose:
-            print(f"Whisper Output Shape: {whisper_features.shape}")
-        
+            logger.debug(f"Whisper Output Shape: {whisper_features.shape}")
+
         # Adapt features for BiGRU
         x = self.adaptation(whisper_features)  # (batch, time, 128)
-        
+
         if verbose:
-            print(f"After Adaptation Shape: {x.shape}")
-        
+            logger.debug(f"After adaptation shape: {x.shape}")
+
         # Transpose for GRU: (time, batch, feature)
         x = x.transpose(0, 1)
-        
+
         if verbose:
-            print(f"After Transpose Shape: {x.shape}")
-        
-        out, hidden = self.bigru(x, hidden)
-        
+            logger.debug(f"After transpose for GRU shape: {x.shape}")
+
+        # Pack the sequence for GRU
+        packed_x = rnn_utils.pack_padded_sequence(x, lengths, enforce_sorted=False)
+        packed_out, hidden = self.bigru(packed_x, hidden)
+
+        # Unpack the sequence
+        out, _ = rnn_utils.pad_packed_sequence(packed_out)
+
         if verbose:
-            print(f"After GRU Shape: {out.shape}")
-        
+            logger.debug(f"After BiGRU shape: {out.shape}")
+
         x = self.dropout2(F.gelu(self.layer_norm2(out)))
-        
+
         if verbose:
-            print(f"After Layer Norm Shape: {x.shape}")
-        
-        return self.final_fc(x), hidden # (time, batch, n_class)
+            logger.debug(f"After layer norm/dropout shape: {x.shape}")
+
+        final_output = self.final_fc(x)
+        logger.info(f"Final model output shape: {final_output.shape}")
+
+        return final_output, hidden  # (time, batch, n_class)
 

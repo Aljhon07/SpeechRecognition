@@ -46,7 +46,7 @@ if "%1"=="train" (
         -v "%cd%\main.py:/app/main.py" ^
         -e PYTHONPATH=/app ^
         -e GENAI_API_KEY=%GENAI_API_KEY% ^
-        eec94cfd9405 python -m src/train.py
+        speech-recognition python main.py
     goto :eof
 )
 
@@ -62,7 +62,23 @@ if "%1"=="preprocess" (
         -v "%cd%\config.py:/app/config.py" ^
         -e PYTHONPATH=/app ^
         -e GENAI_API_KEY=%GENAI_API_KEY% ^
-        eec94cfd9405 python -c "from src.preprocess import preprocess; preprocess()"
+        speech-recognition python -c "from src.preprocess import preprocess; preprocess()"
+    goto :eof
+)
+
+if "%1"=="extract" (
+    echo Running Whisper feature extraction...
+    docker run --rm --tty ^
+        -v "%cd%\output:/app/output" ^
+        -v "%cd%\logs:/app/logs" ^
+        -v "%cd%\commonvoice:/app/commonvoice" ^
+        -v "%cd%\src:/app/src" ^
+        -v "%cd%\inference:/app/inference" ^
+        -v "%cd%\tools:/app/tools" ^
+        -v "%cd%\config.py:/app/config.py" ^
+        -e PYTHONPATH=/app ^
+        -e GENAI_API_KEY=%GENAI_API_KEY% ^
+        speech-recognition python tools/whisper_extractor.py
     goto :eof
 )
 

@@ -8,12 +8,16 @@ import config
 import random
 import torch.nn.functional as F
 from tools.utils import plot_spectrogram, ctc_decoder, play_sound
-from src.preprocess import LogMelSpectrogram
 import torchaudio
 from tools import language_corpus as lc
+from src.preprocess import WhisperLogMelSpectrogram
 import os
 import json 
 from tqdm import tqdm
+import logging
+
+# Set up logging for training shape tracking
+logger = logging.getLogger(__name__)
 
 class SpeechTrainer:
     def __init__(self, model, loaders, criterion, optimizer, scheduler, device, total_steps, speech_module=None):
@@ -24,7 +28,7 @@ class SpeechTrainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.device = device
-        self.check_sample = False
+        self.check_sample = True
         self.log_file = config.LOG_DIR / 'train_log.json'
         self.overall_step_count = 0
         self.total_steps = total_steps
@@ -102,20 +106,30 @@ class SpeechTrainer:
             self.overall_step_count += 1
         # Input Shape: (batch_size, n_feats, seq_len)
         inputs, labels, inputs_len, labels_len, file_name = batch
+        log_debug = self.overall_step_count % 100 == 0 or self.overall_step_count == 1
+
         inputs, labels = inputs.to(self.device), labels.to(self.device)
         inputs_len, labels_len = inputs_len.to(self.device), labels_len.to(self.device)
 
         bs = inputs.shape[0]
         hidden = self.model._init_hidden(batch_size=bs, device=self.device)
 
-        output, _ = self.model(inputs, hidden)
+        if log_debug:
+            logger.debug(f"Step {step_count} ({mode}) - Before model inputs shape: {inputs.shape}")
+        output, _ = self.model(inputs, inputs_len,hidden)
+        if log_debug:
+            logger.debug(f"Step {step_count} ({mode}) - Model output shape: {output.shape}")
 
         # Test: Check actual dimensions to determine if scaling is needed
         if step_count == 1:
-            print(f"Input shape: {inputs.shape}")
-            print(f"Output shape: {output.shape}")
-            print(f"Input lengths (first 3): {inputs_len[:3]}")
-            print(f"Does output time == input time? {output.shape[0] == inputs.shape[2]}")
+            tqdm.write(f"{'=' * 10} Debug Info {'=' * 10}")
+            tqdm.write(f"Step {step_count} ({mode}) - Raw inputs shape: {inputs.shape}")
+            tqdm.write(f"Step {step_count} ({mode}) - Labels shape: {labels.shape}")
+            tqdm.write(f"Step {step_count} ({mode}) - Input lengths: {inputs_len.shape}")
+            tqdm.write(f"Step {step_count} ({mode}) - Label lengths: {labels_len.shape}")
+            # nputs are (batch, n_mels, time), output is (time, batch, n_class)
+            tqdm.write(f"Step 1 shape verification - Input: {inputs.shape}, Output: {output.shape}")
+            tqdm.write(f"Step 1 time dimension check - Output time: {output.shape[0]}, Input time: {inputs.shape[2]}")
 
         # if mode == 'val':
         #     output = output / temperature
@@ -123,7 +137,7 @@ class SpeechTrainer:
         _log_softmax = F.log_softmax(output, dim=2)
 
         # Whisper preserves temporal dimension, so output lengths = input lengths
-        loss = self.criterion(_log_softmax, labels, inputs_len, labels_len)
+        loss = self.criterion(_log_softmax, labels, inputs_len // 2, labels_len)
         if (mode == 'val' and step_count % 100 == 0) or (step_count % 100 == 0 and step_count > 0):
             sample = output.transpose(0, 1).contiguous()
             prediction = torch.argmax(sample[0], dim=1)
@@ -131,7 +145,7 @@ class SpeechTrainer:
             tqdm.write(f"T1: {sample[0, 0, :10].tolist()}")
             # with open(self.log_file, 'a') as f:
             #     f.write(f"Step {step_count} | Loss: {loss.item():.4f}\nPrediction: {prediction.tolist()} | Labels: {labels[0].tolist()}\n")
-            tqdm.write(f"prediction: {ctc_decoder(prediction.tolist())} \nLabels: {labels[0].tolist()} ")
+            tqdm.write(f"Prediction: {ctc_decoder(prediction.tolist())} \nLabels: {labels[0].tolist()} ")
 
         return loss, 0
 
@@ -156,7 +170,6 @@ class SpeechTrainer:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
 
                 lr = f"{self.scheduler.get_last_lr()[0]:.7f}".rstrip('0')
-                penalty = f"{penalty:.4f}".rstrip('0')
                 loader_progress = f"{loader_idx + 1}/{len(loaders)}"
                 progress_bar.set_postfix({
                     "LR": lr,
@@ -263,7 +276,7 @@ class SpeechTrainer:
             if not audio_path.exists():
                 raise FileNotFoundError(f"Audio file {audio_path} does not exist.")
             audio, sr = torchaudio.load(audio_path)       
-            spec = LogMelSpectrogram()(audio)
+            spec = WhisperLogMelSpectrogram()(audio)
 
             # Cross-platform audio playback
             play_sound(audio_path)

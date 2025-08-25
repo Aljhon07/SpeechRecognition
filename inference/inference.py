@@ -1,13 +1,17 @@
 import torch
 import torch.nn.functional as F
 from src.neural_net.LightWeightModel import LightWeightModel as Model
-from src.preprocess import LogMelSpectrogram
+from src.preprocess import WhisperLogMelSpectrogram
 import os
 from tools import audio, utils, language_corpus as lc
 import torchaudio
 import config
 import uuid
 from google import genai
+import logging
+
+# Set up logging for inference shape tracking
+logger = logging.getLogger(__name__)
 
 client = genai.Client(api_key=config.GENAI_API_KEY)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -21,7 +25,8 @@ model.load_state_dict(checkpoint['model_state_dict'])
 model.eval()
 model.to(device)
 
-log_mel = LogMelSpectrogram()
+# Use WhisperLogMelSpectrogram for consistent preprocessing
+log_mel = WhisperLogMelSpectrogram()
 
 def inference(file_path):
     # print(f"Using Model: {checkpoint_path}")
@@ -37,15 +42,27 @@ def inference(file_path):
         return None
     
     waveform, sample_rate = torchaudio.load(converted_file)
+    logger.info(f"Inference - Loaded waveform shape: {waveform.shape}, sample_rate: {sample_rate}")
+    
     if sample_rate != 16000:
         waveform = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=16000)(waveform)
+        logger.info(f"Inference - Resampled waveform shape: {waveform.shape}")
         
+    # WhisperLogMelSpectrogram returns shape (1, n_mels, time)
     spectrogram = log_mel(waveform).to(device)
+    logger.info(f"Inference - Spectrogram shape after WhisperLogMel: {spectrogram.shape}")
+    
+    # Remove batch dimension and transpose to (time, n_mels) for model input
+    if spectrogram.dim() == 3 and spectrogram.shape[0] == 1:
+        spectrogram = spectrogram.squeeze(0).transpose(0, 1).unsqueeze(0)  # (1, time, n_mels)
+        logger.info(f"Inference - Spectrogram shape after reshape: {spectrogram.shape}")
 
     # os.remove(file_path)
     os.remove(converted_file)
     with torch.no_grad():
+        logger.info(f"Inference - Input to model shape: {spectrogram.shape}")
         output, hidden = model(spectrogram)
+        logger.info(f"Inference - Model output shape: {output.shape}")
         output = F.log_softmax(output, dim=-1)
         # print(f"Output shape: {output.shape}")
         predicted_ids = torch.argmax(output, dim=-1).transpose(0, 1)
