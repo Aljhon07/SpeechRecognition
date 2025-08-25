@@ -1,23 +1,9 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from transformers import WhisperModel
 import config 
 verbose = config.H_PARAMS["VERBOSE"]
-class ActDropNormCNN1D(nn.Module):
-    def __init__(self, n_feats, dropout, keep_shape=False):
-        super(ActDropNormCNN1D, self).__init__()
-        self.dropout = nn.Dropout(dropout)
-        self.norm = nn.LayerNorm(n_feats)
-        self.keep_shape = keep_shape
-    
-    def forward(self, x):
-        x = x.transpose(1, 2)
-        # x = self.norm(self.dropout(F.gelu(x)))
-        x = self.dropout(F.gelu(self.norm(x)))
-        if self.keep_shape:
-            return x.transpose(1, 2)
-        else:
-            return x
 
 class LightWeightModel(nn.Module):
 
@@ -25,32 +11,24 @@ class LightWeightModel(nn.Module):
         super(LightWeightModel, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
-        self.cnn = nn.Sequential(
-            nn.Conv1d(n_feats, 128, 7, 2, padding=7//2),
-            ActDropNormCNN1D(128, dropout, keep_shape=True),
-            nn.Conv1d(128, 256, 3, 1, padding=3//2),
-            ActDropNormCNN1D(256, dropout, keep_shape=True),
-            nn.Conv1d(256, 128, 3, 1, padding=3//2),
-            ActDropNormCNN1D(128, dropout),
-        )
-
-        # Simplified dense network with residual connection
-        self.dense1 = nn.Sequential(
-            nn.Linear(128, 192),
-            nn.LayerNorm(192),
-            nn.GELU(),
-            nn.Dropout(dropout)
-        )
         
-        self.dense2 = nn.Sequential(
-            nn.Linear(192, 128),
+        # Replace CNN with frozen Whisper tiny encoder
+        self.whisper_encoder = WhisperModel.from_pretrained("openai/whisper-tiny").encoder
+        
+        # Freeze all Whisper parameters
+        for param in self.whisper_encoder.parameters():
+            param.requires_grad = False
+        
+        # Whisper tiny outputs 384-dimensional features
+        whisper_output_dim = 384
+        
+        # Adaptation layer to connect Whisper output to BiGRU
+        self.adaptation = nn.Sequential(
+            nn.Linear(whisper_output_dim, 128),
             nn.LayerNorm(128),
             nn.GELU(),
             nn.Dropout(dropout)
         )
-        
-        # Projection for residual connection
-        self.residual_proj = nn.Linear(128, 128)
         
         self.bigru = nn.GRU(input_size=128, hidden_size=512,
                             num_layers=num_layers, dropout=dropout,
@@ -66,29 +44,43 @@ class LightWeightModel(nn.Module):
         return torch.zeros(n * 2, batch_size, hs, device=device)
 
     def forward(self, x, hidden=None):
-        x = x.squeeze(1).contiguous()  # batch, feature, time
+        # Input should be (batch, n_mels=80, time)
         if verbose:
-            print(f"Input Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
-        x = self.cnn(x) # batch, time, feature
-        if verbose:
-            print(f"After CNN Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
+            print(f"Input Shape: {x.shape}")
         
-        # Simplified dense with residual connection
-        residual = self.residual_proj(x)  # Store for residual connection
-        x = self.dense1(x)
-        x = self.dense2(x)
-        x = x + residual  # Residual connection
+        # Ensure input is (batch, n_mels, time) format for Whisper
+        if x.dim() == 4:
+            x = x.squeeze(1)  # Remove channel dimension if present
+        
+        # Forward through frozen Whisper encoder
+        with torch.no_grad():
+            whisper_outputs = self.whisper_encoder(x)
+            whisper_features = whisper_outputs.last_hidden_state  # (batch, time, 384)
         
         if verbose:
-            print(f"After Dense Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
-        x = x.transpose(0, 1) # time, batch, feature
+            print(f"Whisper Output Shape: {whisper_features.shape}")
+        
+        # Adapt features for BiGRU
+        x = self.adaptation(whisper_features)  # (batch, time, 128)
+        
         if verbose:
-            print(f"After Transpose Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
+            print(f"After Adaptation Shape: {x.shape}")
+        
+        # Transpose for GRU: (time, batch, feature)
+        x = x.transpose(0, 1)
+        
+        if verbose:
+            print(f"After Transpose Shape: {x.shape}")
+        
         out, hidden = self.bigru(x, hidden)
+        
         if verbose:
-            print(f"After GRU Shape: {out.shape} | Contiguous: {out.is_contiguous()}")
-        x = self.dropout2(F.gelu(self.layer_norm2(out)))  # (time, batch, n_class)
+            print(f"After GRU Shape: {out.shape}")
+        
+        x = self.dropout2(F.gelu(self.layer_norm2(out)))
+        
         if verbose:
-            print(f"After Layer Norm Shape: {x.shape} | Contiguous: {x.is_contiguous()}")
+            print(f"After Layer Norm Shape: {x.shape}")
+        
         return self.final_fc(x), hidden # (time, batch, n_class)
 

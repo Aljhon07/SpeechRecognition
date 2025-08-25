@@ -22,6 +22,7 @@ services:
       - FLASK_ENV=development
       - FLASK_APP=inference/app.py
       - FLASK_DEBUG=1
+      - GENAI_API_KEY=${GENAI_API_KEY}
     restart: unless-stopped
     command: ["python", "inference/app.py"]
 
@@ -40,6 +41,7 @@ services:
       - ./config.py:/app/config.py
     environment:
       - PYTHONPATH=/app
+      - GENAI_API_KEY=${GENAI_API_KEY}
     command: ["python", "src/train.py"]
     profiles:
       - training

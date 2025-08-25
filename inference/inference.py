@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from inference.models.Curriculum.LightWeightModel import LightWeightModel as Model
+from src.neural_net.LightWeightModel import LightWeightModel as Model
 from src.preprocess import LogMelSpectrogram
 import os
 from tools import audio, utils, language_corpus as lc

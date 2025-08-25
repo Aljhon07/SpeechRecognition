@@ -31,11 +31,14 @@ class LogMelSpectrogram(nn.Module):
             n_mels=self.n_mels,
         )
         self.resample = torchaudio.transforms.Resample(orig_freq=self.sr, new_freq=self.sr)
+    
     def forward(self, x):
+        # Whisper-compatible preprocessing
         x = rms_normalize(x)
         spec = self.mel_spectrogram(x)
-        spec = np.log10(spec + 1e-8)
-        spec = mean_norm(spec)
+        # Use natural log and clamp (Whisper standard)
+        spec = torch.log(spec.clamp(min=1e-10))
+        # Remove custom mean_norm - Whisper handles normalization internally
         return spec
 
 class  AudioInfo():
@@ -68,7 +71,7 @@ class  AudioInfo():
 
         df = pd.read_csv(self.tsv_file, sep='\t')
         total_rows = len(df)
-        progress = tqdm(total=total_rows, desc=f"Processing {tsv_file} files")
+        progress = tqdm(total=total_rows, desc=f"Processing {tsv_file} dataset files")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
             futures = []
@@ -114,9 +117,8 @@ class  AudioInfo():
 
 
     def load_audio(self, audio_file, file_name):
-        info = torchaudio.info(audio_file)
         waveform, sr = torchaudio.load(audio_file)
-
+        
         if waveform is None or waveform.numel() == 0:
             print(f"Skipping file {audio_file} due to invalid or empty waveform.")
             return None
@@ -128,14 +130,16 @@ class  AudioInfo():
             print(f"Skipping {audio_file}: invalid values.")
             return None
         
-        orig_duration = info.num_frames / self.sr
+        # Calculate frames directly from waveform shape
+        num_frames = waveform.shape[-1]
+        orig_duration = num_frames / self.sr
         bucket = get_bucket_duration(waveform)
     
         rms = rms_normalize(waveform)
         if rms is None:
             return None
         
-        return orig_duration, orig_duration, bucket, info.num_frames
+        return orig_duration, orig_duration, bucket, num_frames
 
 class AudioTranscriptionTSV():
     def __init__(self ):
@@ -182,7 +186,7 @@ class AudioTranscriptionTSV():
             'warning': 0
         }
         
-        self.load_file(file_path)
+        self.load_file(file_path, file_name)
 
         self.save_tsv()
         print(f"Saved TSV file to {self.save_file} | Success: {self.preprocess_count['success']} | Fail: {self.preprocess_count['fail']}")
@@ -206,10 +210,10 @@ class AudioTranscriptionTSV():
         df[['file_name', 'transcription']] = new_data_df
         df.to_csv(self.save_file, sep='\t',index=False)
 
-    def load_file(self, tsv_file):
+    def load_file(self, tsv_file, dataset_name='files'):
         df = pd.read_csv(tsv_file, sep='\t', low_memory=False)
         total_rows = len(df)
-        progress = tqdm(total=total_rows, desc="Processing files")
+        progress = tqdm(total=total_rows, desc=f"Processing {dataset_name} files")
         
         if not df['path'].duplicated().any():
             tqdm.write("All paths are unique!")
@@ -267,7 +271,7 @@ class AudioTranscriptionTSV():
                     local_results['warning'] += 1
                 return local_results
 
-            # transcription = normalize_text(transcription)
+            transcription = normalize_text(transcription)
 
             if os.path.exists(wav_file):
                 if os.path.exists(audio_file):

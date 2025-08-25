@@ -1,4 +1,68 @@
-# Lingua_ASR_Process
+# Speech Recognition with Whisper Integration
+
+This project implements a speech recognition system using a hybrid approach that combines OpenAI's Whisper tiny model as a feature extractor with a custom BiGRU neural network for transcription.
+
+## Architecture
+
+- **Feature Extractor**: Frozen Whisper tiny encoder (384-dim features)
+- **Adaptation Layer**: Linear layer to bridge Whisper output to BiGRU input
+- **Sequence Model**: Bidirectional GRU with CTC loss for sequence-to-sequence learning
+- **Web Interface**: Flask API for audio transcription with mobile app support
+
+## Quick Start with Docker
+
+### Prerequisites
+
+- Docker and Docker Compose installed
+- At least 4GB RAM available for Docker
+
+### 1. Environment Setup
+
+```bash
+# Copy the environment template
+cp .env.example .env
+
+# Edit .env file with your Google GenAI API key
+# GENAI_API_KEY=your-actual-api-key-here
+```
+
+### 2. Build the Application
+
+```bash
+# Build the Docker image
+docker-compose build
+
+# Or use the convenience script (Windows)
+docker-run.bat build
+```
+
+### 3. Run the Application
+
+#### Production Mode
+
+```bash
+# Start the speech recognition service
+docker-compose up -d speech-recognition
+
+# Access the web interface at http://localhost:8080
+```
+
+#### Development Mode
+
+```bash
+# Start with live code reloading
+docker-compose -f docker-compose.dev.yml up speech-recognition-dev
+```
+
+#### Training Mode
+
+```bash
+# Preprocess data only
+docker-compose --profile preprocess up preprocess
+
+# Full training pipeline
+docker-compose --profile training up training
+```
 
 ## Dataset Gathering
 

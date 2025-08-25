@@ -45,6 +45,9 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# Download Whisper tiny model to cache it during build
+RUN python -c "from transformers import WhisperModel; WhisperModel.from_pretrained('openai/whisper-tiny')"
+
 # Copy only the required source directories
 COPY src/ ./src/
 COPY inference/ ./inference/
@@ -62,6 +65,7 @@ EXPOSE 8080
 ENV PYTHONPATH=/app
 ENV FLASK_APP=inference/app.py
 ENV FLASK_ENV=production
+ENV DOCKER_ENV=1
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \

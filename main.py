@@ -43,7 +43,7 @@ if __name__ == '__main__':
     # print(file.exists())
     # remove_audio_files(config.COMMON_VOICE_PATH / 'invalidated.tsv')
     preprocess()
-    train.main()
+    # train.main()
     # print(os.path.exists(config.COMMON_VOICE_PATH / 'clips' / 'common_voice_en_16759015.mp3'))
     # sanity_check()
     pass

@@ -3,7 +3,8 @@ REM Speech Recognition Docker Management Script for Windows
 
 if "%1"=="build" (
     echo Building Speech Recognition Docker image...
-    docker-compose build
+    docker build -t speech-recognition .
+    echo Build completed!
     goto :eof
 )
 
@@ -33,8 +34,35 @@ if "%1"=="logs" (
 )
 
 if "%1"=="train" (
-    echo Running training in container...
-    docker-compose --profile training up training
+    echo Running training with TTY and service volumes...
+    docker run --rm --tty ^
+        -v "%cd%\output:/app/output" ^
+        -v "%cd%\logs:/app/logs" ^
+        -v "%cd%\commonvoice:/app/commonvoice" ^
+        -v "%cd%\src:/app/src" ^
+        -v "%cd%\inference:/app/inference" ^
+        -v "%cd%\tools:/app/tools" ^
+        -v "%cd%\config.py:/app/config.py" ^
+        -v "%cd%\main.py:/app/main.py" ^
+        -e PYTHONPATH=/app ^
+        -e GENAI_API_KEY=%GENAI_API_KEY% ^
+        eec94cfd9405 python -m src/train.py
+    goto :eof
+)
+
+if "%1"=="preprocess" (
+    echo Running preprocessing with TTY and service volumes...
+    docker run --rm --tty ^
+        -v "%cd%\output:/app/output" ^
+        -v "%cd%\logs:/app/logs" ^
+        -v "%cd%\commonvoice:/app/commonvoice" ^
+        -v "%cd%\src:/app/src" ^
+        -v "%cd%\inference:/app/inference" ^
+        -v "%cd%\tools:/app/tools" ^
+        -v "%cd%\config.py:/app/config.py" ^
+        -e PYTHONPATH=/app ^
+        -e GENAI_API_KEY=%GENAI_API_KEY% ^
+        eec94cfd9405 python -c "from src.preprocess import preprocess; preprocess()"
     goto :eof
 )
 
@@ -51,17 +79,18 @@ if "%1"=="clean" (
 )
 
 echo Speech Recognition Docker Management
-echo Usage: %0 {build^|start^|stop^|restart^|logs^|train^|shell^|clean}
+echo Usage: %0 {build^|start^|stop^|restart^|logs^|train^|preprocess^|shell^|clean}
 echo.
 echo Commands:
-echo   build   - Build the Docker image
-echo   start   - Start the application
-echo   stop    - Stop the application
-echo   restart - Restart the application
-echo   logs    - Show application logs
-echo   train   - Run training in container
-echo   shell   - Open bash shell in container
-echo   clean   - Clean up all Docker resources
+echo   build      - Build the Docker image
+echo   start      - Start the application
+echo   stop       - Stop the application
+echo   restart    - Restart the application
+echo   logs       - Show application logs
+echo   train      - Run training with TTY (real-time progress)
+echo   preprocess - Run preprocessing with TTY (real-time progress)
+echo   shell      - Open bash shell in container
+echo   clean      - Clean up all Docker resources
 echo.
 echo Configuration:
 echo   Edit .env file to switch between development/production mode

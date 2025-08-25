@@ -22,6 +22,7 @@ services:
       - FLASK_ENV=${FLASK_ENV:-production}
       - FLASK_APP=inference/app.py
       - FLASK_DEBUG=${FLASK_DEBUG:-0}
+      - GENAI_API_KEY=${GENAI_API_KEY}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/"]
@@ -45,6 +46,7 @@ services:
       - ./main.py:/app/main.py
     environment:
       - PYTHONPATH=/app
+      - GENAI_API_KEY=${GENAI_API_KEY}
     command: ["python", "main.py"] # Runs both preprocess() and train.main()
     profiles:
       - training
@@ -52,6 +54,8 @@ services:
   # Preprocessing only service
   preprocess:
     build: .
+    tty: true
+    stdin_open: true
     container_name: speech-preprocess
     volumes:
       - ./output:/app/output
@@ -63,6 +67,7 @@ services:
       - ./config.py:/app/config.py
     environment:
       - PYTHONPATH=/app
+      - GENAI_API_KEY=${GENAI_API_KEY}
     command:
       ["python", "-c", "from src.preprocess import preprocess; preprocess()"]
     profiles:

@@ -110,12 +110,20 @@ class SpeechTrainer:
 
         output, _ = self.model(inputs, hidden)
 
+        # Test: Check actual dimensions to determine if scaling is needed
+        if step_count == 1:
+            print(f"Input shape: {inputs.shape}")
+            print(f"Output shape: {output.shape}")
+            print(f"Input lengths (first 3): {inputs_len[:3]}")
+            print(f"Does output time == input time? {output.shape[0] == inputs.shape[2]}")
+
         # if mode == 'val':
         #     output = output / temperature
 
         _log_softmax = F.log_softmax(output, dim=2)
 
-        loss = self.criterion(_log_softmax, labels, inputs_len // 2, labels_len)
+        # Whisper preserves temporal dimension, so output lengths = input lengths
+        loss = self.criterion(_log_softmax, labels, inputs_len, labels_len)
         if (mode == 'val' and step_count % 100 == 0) or (step_count % 100 == 0 and step_count > 0):
             sample = output.transpose(0, 1).contiguous()
             prediction = torch.argmax(sample[0], dim=1)
@@ -305,6 +313,7 @@ def main():
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=10, final_div_factor=100, pct_start=0.2, cycle_momentum=False)
 
     trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device, total_steps=total_steps, speech_module=speech_module)
+    
     trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=False, sort=True, checkpoint_name="checkpoint_epoch_2_train_7.1314.pth")
     
 if __name__ == "__main__":

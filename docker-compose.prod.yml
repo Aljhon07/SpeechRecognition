@@ -16,6 +16,7 @@ services:
       - PYTHONPATH=/app
       - FLASK_ENV=production
       - FLASK_APP=inference/app.py
+      - GENAI_API_KEY=${GENAI_API_KEY}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/"]
