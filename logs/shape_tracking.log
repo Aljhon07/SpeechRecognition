@@ -76,3 +76,68 @@
 2025-08-25 15:47:23,098 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
 2025-08-25 15:47:23,961 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
 2025-08-25 15:47:25,999 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-26 03:33:00,819 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-26 03:35:28,218 - src.preprocess - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-26 03:58:01,157 - __main__ - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-26 04:00:09,035 - __main__ - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-08-26 04:02:13,260 - __main__ - INFO - WhisperLogMelSpectrogram initialized - Sample rate: 16000, Feature size: 80
+2025-09-08 10:19:09,158 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 10:27:59,028 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 10:29:33,263 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 10:32:20,202 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 10:33:49,255 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 10:37:18,668 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 10:44:47,362 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 10:47:26,157 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 10:50:43,926 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 10:51:54,400 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 10:56:30,798 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 10:57:03,770 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([496, 8, 5000])
+2025-09-08 10:57:42,401 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([471, 8, 5000])
+2025-09-08 10:58:28,119 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([486, 8, 5000])
+2025-09-08 11:02:19,838 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 11:02:33,007 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([496, 8, 5000])
+2025-09-08 11:03:34,481 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([428, 8, 5000])
+2025-09-08 11:04:01,421 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([486, 8, 5000])
+2025-09-08 11:04:41,567 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([496, 8, 5000])
+2025-09-08 11:05:26,868 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 11:05:38,371 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([471, 8, 5000])
+2025-09-08 11:06:12,472 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([489, 8, 5000])
+2025-09-08 11:06:50,481 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([489, 8, 5000])
+2025-09-08 11:07:17,086 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([496, 8, 5000])
+2025-09-08 11:07:52,303 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([450, 8, 5000])
+2025-09-08 11:08:15,459 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([478, 8, 5000])
+2025-09-08 11:08:45,108 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([489, 8, 5000])
+2025-09-08 11:09:07,013 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([496, 8, 5000])
+2025-09-08 11:20:35,560 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 11:20:48,335 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([478, 8, 5000])
+2025-09-08 11:21:16,811 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([489, 8, 5000])
+2025-09-08 11:21:48,256 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([460, 8, 5000])
+2025-09-08 11:22:17,473 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([496, 8, 5000])
+2025-09-08 11:22:41,618 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([496, 8, 5000])
+2025-09-08 11:23:15,783 - matplotlib.font_manager - INFO - generated new fontManager
+2025-09-08 11:23:34,123 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([234, 8, 5000])
+2025-09-08 11:23:44,624 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([248, 8, 5000])
+2025-09-08 11:23:57,894 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([248, 8, 5000])
+2025-09-08 11:24:23,774 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([244, 8, 5000])
+2025-09-08 11:24:34,201 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([244, 8, 5000])
+2025-09-08 11:24:47,647 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([244, 8, 5000])
+2025-09-08 11:24:58,366 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([248, 8, 5000])
+2025-09-08 11:25:12,564 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([243, 8, 5000])
+2025-09-08 11:25:28,537 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([239, 8, 5000])
+2025-09-08 11:25:44,363 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([234, 8, 5000])
+2025-09-08 11:25:55,900 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([248, 8, 5000])
+2025-09-08 11:26:18,158 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([471, 8, 5000])
+2025-09-08 11:26:40,621 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([401, 8, 5000])
+2025-09-08 11:27:16,024 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([365, 8, 5000])
+2025-09-08 11:27:33,427 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([361, 8, 5000])
+2025-09-08 11:27:50,545 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([424, 8, 5000])
+2025-09-08 11:28:13,995 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([478, 8, 5000])
+2025-09-08 11:28:37,029 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([433, 8, 5000])
+2025-09-08 11:28:57,265 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([451, 8, 5000])
+2025-09-08 11:29:26,096 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([419, 8, 5000])
+2025-09-08 11:29:43,735 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([487, 8, 5000])
+2025-09-08 11:30:05,898 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([397, 8, 5000])
+2025-09-08 11:30:27,384 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([415, 8, 5000])
+2025-09-08 11:30:46,510 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([230, 8, 5000])
+2025-09-08 11:30:52,234 - src.neural_net.LightWeightModel - INFO - Final model output shape: torch.Size([248, 8, 5000])

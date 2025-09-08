@@ -7,6 +7,7 @@ BASE_DIR = Path(__file__).parent.resolve()
 LANGUAGE = "en"
 GENAI_API_KEY = os.getenv("GENAI_API_KEY", "AIzaSyCy9YBM9s8K3jTnk4jvs7jMVz8ln5CJnZM")
 
+LIBRISPEECH_PATH = BASE_DIR / "librispeech"
 COMMON_VOICE_PATH = BASE_DIR / "commonvoice" / LANGUAGE
 OUTPUT_DIR = BASE_DIR / "output" / LANGUAGE
 WAVS_PATH = COMMON_VOICE_PATH / "wavs"

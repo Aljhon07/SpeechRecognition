@@ -62,13 +62,6 @@ class SpeechTrainer:
         for epoch in range(start_epoch, num_epochs):
             epoch += 1
             
-            # Update augmentation parameters based on epoch progress
-            if self.speech_module is not None:
-                for bucket_key in self.speech_module.datasets:
-                    self.speech_module.datasets[bucket_key]['train'].update_epoch_progress(epoch, num_epochs)
-                    self.speech_module.datasets[bucket_key]['val'].update_epoch_progress(epoch, num_epochs)
-                print(f"Updated augmentation for epoch {epoch}/{num_epochs}")
-            
             buckets = list(self.loaders.keys())
             # random.shuffle(buckets)
 
@@ -108,6 +101,7 @@ class SpeechTrainer:
         inputs, labels, inputs_len, labels_len, file_name = batch
         log_debug = self.overall_step_count % 100 == 0 or self.overall_step_count == 1
 
+        inputs_len = inputs_len // 2
         inputs, labels = inputs.to(self.device), labels.to(self.device)
         inputs_len, labels_len = inputs_len.to(self.device), labels_len.to(self.device)
 
@@ -116,7 +110,7 @@ class SpeechTrainer:
 
         if log_debug:
             logger.debug(f"Step {step_count} ({mode}) - Before model inputs shape: {inputs.shape}")
-        output, _ = self.model(inputs, inputs_len,hidden)
+        output, _ = self.model(inputs, inputs_len, hidden)
         if log_debug:
             logger.debug(f"Step {step_count} ({mode}) - Model output shape: {output.shape}")
 
@@ -137,7 +131,7 @@ class SpeechTrainer:
         _log_softmax = F.log_softmax(output, dim=2)
 
         # Whisper preserves temporal dimension, so output lengths = input lengths
-        loss = self.criterion(_log_softmax, labels, inputs_len // 2, labels_len)
+        loss = self.criterion(_log_softmax, labels, inputs_len, labels_len)
         if (mode == 'val' and step_count % 100 == 0) or (step_count % 100 == 0 and step_count > 0):
             sample = output.transpose(0, 1).contiguous()
             prediction = torch.argmax(sample[0], dim=1)
@@ -276,7 +270,7 @@ class SpeechTrainer:
             if not audio_path.exists():
                 raise FileNotFoundError(f"Audio file {audio_path} does not exist.")
             audio, sr = torchaudio.load(audio_path)       
-            spec = WhisperLogMelSpectrogram()(audio)
+            spec, unpadded_spec = WhisperLogMelSpectrogram()(audio)
 
             # Cross-platform audio playback
             play_sound(audio_path)
@@ -318,7 +312,8 @@ def main():
     model = Model().to(device)
     speech_module = SpeechModule()
     loaders = speech_module.loaders
-    
+    random_bucket = list(loaders.keys())[0]  # Pick a random bucket for testing
+ 
     total_steps = sum([len(loader['train']) for loader in loaders.values()]) * config.H_PARAMS["TOTAL_EPOCH"]
 
     criterion = nn.CTCLoss(blank=0, reduction='mean', zero_infinity=True)

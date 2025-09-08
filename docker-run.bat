@@ -56,6 +56,7 @@ if "%1"=="preprocess" (
         -v "%cd%\output:/app/output" ^
         -v "%cd%\logs:/app/logs" ^
         -v "%cd%\commonvoice:/app/commonvoice" ^
+        -v "%cd%\commonvoice:/app/librispeech" ^
         -v "%cd%\src:/app/src" ^
         -v "%cd%\inference:/app/inference" ^
         -v "%cd%\tools:/app/tools" ^

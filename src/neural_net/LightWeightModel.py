@@ -29,13 +29,13 @@ class LightWeightModel(nn.Module):
         
         # Adaptation layer to connect Whisper output to BiGRU
         self.adaptation = nn.Sequential(
-            nn.Linear(whisper_output_dim, 128),
-            nn.LayerNorm(128),
+            nn.Linear(whisper_output_dim, 256),
+            nn.LayerNorm(256),
             nn.GELU(),
             nn.Dropout(dropout)
         )
         
-        self.bigru = nn.GRU(input_size=128, hidden_size=512,
+        self.bigru = nn.GRU(input_size=256, hidden_size=512,
                             num_layers=num_layers, dropout=dropout,
                             bidirectional=True)
         
@@ -51,7 +51,7 @@ class LightWeightModel(nn.Module):
     def forward(self, x, lengths, hidden=None):
         # Input should be (batch, n_mels=80, time) - from collate_fn
         if verbose:
-            logger.debug(f"Model forward - Input shape: {x.shape}")
+            print(f"Model forward - Input shape: {x.shape}")
 
         # Forward through frozen Whisper encoder
         with torch.no_grad():
@@ -59,19 +59,19 @@ class LightWeightModel(nn.Module):
             whisper_features = whisper_outputs.last_hidden_state  # (batch, time, 384)
 
         if verbose:
-            logger.debug(f"Whisper Output Shape: {whisper_features.shape}")
+            print(f"Whisper Output Shape: {whisper_features.shape}")
 
         # Adapt features for BiGRU
         x = self.adaptation(whisper_features)  # (batch, time, 128)
 
         if verbose:
-            logger.debug(f"After adaptation shape: {x.shape}")
+            print(f"After adaptation shape: {x.shape}")
 
         # Transpose for GRU: (time, batch, feature)
         x = x.transpose(0, 1)
 
         if verbose:
-            logger.debug(f"After transpose for GRU shape: {x.shape}")
+            print(f"After transpose for GRU shape: {x.shape}")
 
         # Pack the sequence for GRU
         packed_x = rnn_utils.pack_padded_sequence(x, lengths, enforce_sorted=False)
@@ -81,12 +81,12 @@ class LightWeightModel(nn.Module):
         out, _ = rnn_utils.pad_packed_sequence(packed_out)
 
         if verbose:
-            logger.debug(f"After BiGRU shape: {out.shape}")
+            print(f"After BiGRU shape: {out.shape}")
 
         x = self.dropout2(F.gelu(self.layer_norm2(out)))
 
         if verbose:
-            logger.debug(f"After layer norm/dropout shape: {x.shape}")
+            print(f"After layer norm/dropout shape: {x.shape}")
 
         final_output = self.final_fc(x)
         logger.info(f"Final model output shape: {final_output.shape}")

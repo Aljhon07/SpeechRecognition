@@ -38,7 +38,7 @@ class SpeechDataset(Dataset):
 
         file_name = data['file_name']
         waveform, sr = torchaudio.load(config.WAVS_PATH / f"{file_name}.wav")
-        spec = self.logmel(waveform)
+        spec, unpadded_spec = self.logmel(waveform)
         if self.verbose:
             print(f"Dataset[{idx}] - Loaded waveform shape: {waveform.shape}, sr: {sr}")
             print(f"Dataset[{idx}] - After logmel shape: {spec.shape}")
@@ -46,7 +46,7 @@ class SpeechDataset(Dataset):
         # WhisperLogMelSpectrogram returns shape (1, n_mels, time_frames)
         # Remove the batch dimension for single samples
         if spec.dim() == 3 and spec.shape[0] == 1:
-            spec = spec.squeeze(0)  # Now shape is (n_mels, time_frames)
+            spec = spec.squeeze(0).contiguous()  # Now shape is (n_mels, time_frames)
             if self.verbose:
                 print(f"Dataset[{idx}] - After squeeze shape: {spec.shape}")
 
@@ -55,21 +55,10 @@ class SpeechDataset(Dataset):
                 print(f"Dataset[{idx}] - Applying augmentation")
             # Progressive SpecAugment based on epoch progress
             # Start with stronger augmentation, reduce as training progresses
-            time_mask_param = max(5, int(15 * (1 - self.epoch_progress * 0.5)))
-            freq_mask_param = max(3, int(8 * (1 - self.epoch_progress * 0.5)))
+            spec = self.apply_mask(spec)
             
-            progressive_mask = nn.Sequential(
-                T.TimeMasking(time_mask_param=time_mask_param),
-                T.FrequencyMasking(freq_mask_param=freq_mask_param)
-            )
-            # Add batch dimension for masking, then remove it
-            spec_before_aug = spec.shape
-            spec = progressive_mask(spec.unsqueeze(0)).squeeze(0)
-            if self.verbose:
-                print(f"Dataset[{idx}] - Augmentation: {spec_before_aug} -> {spec.shape}")
-
         # spec should now be (n_mels, time_frames)
-        spec_len = spec.shape[1]  # time dimension is now at index 1
+        spec_len = unpadded_spec.shape[-1]  # time dimension is now at index 1
         if self.verbose:
             print(f"Dataset[{idx}] - Spec length: {spec_len}")
 
@@ -86,21 +75,11 @@ class SpeechDataset(Dataset):
 
         if self.verbose:
             self.verbose = False  # Only log for the first item
-
-        return final_spec, torch.tensor(labels, dtype=torch.long), torch.tensor(spec_len, dtype=torch.long), torch.tensor(labels_len, dtype=torch.long), file_name
+        labels = torch.tensor(labels, dtype=torch.long)
+        return final_spec, labels, torch.tensor(spec_len, dtype=torch.long), torch.tensor(labels_len, dtype=torch.long), file_name
     
-    def update_epoch_progress(self, epoch, total_epochs):
-        """Update epoch progress and adjust augmentation intensity"""
-        self.epoch_progress = epoch / total_epochs
-        
-        # Reduce augmentation probability as training progresses
-        # Start at 0.5, reduce to 0.2 at the end
-        if self.augmented:
-            self.augmented_prob = max(0.2, 0.5 * (1 - self.epoch_progress * 0.6))
     
     def preprocess(self, audio):
-        audio = double_vad(audio)
-        # WhisperLogMelSpectrogram handles the full preprocessing pipeline
         audio = self.logmel(audio)
         return audio
     
@@ -148,8 +127,8 @@ class SpeechModule:
                 continue
                 
             # Use train data for training and dev data for validation
-            train_items = self.train_data[key]
-            dev_items = self.dev_data[key]
+            train_items = self.train_data[key][:100]
+            dev_items = self.dev_data[key][:50]
 
             train_dataset = SpeechDataset(train_items, augmented=True)
             val_dataset = SpeechDataset(dev_items, augmented=False)
@@ -166,29 +145,21 @@ class SpeechModule:
         
         self.get_dataset_stats()
         return self.loaders
-    
-    def update_epoch_progress(self, epoch, total_epochs):
-        """Update epoch progress for all datasets to adjust augmentation"""
-        for key in self.datasets:
-            if 'train' in self.datasets[key]:
-                self.datasets[key]['train'].update_epoch_progress(epoch, total_epochs)
-            if 'val' in self.datasets[key]:
-                self.datasets[key]['val'].update_epoch_progress(epoch, total_epochs)
-        
-        progress = epoch / total_epochs
-        print(f"Updated augmentation for epoch {epoch}/{total_epochs} (progress: {progress:.2f})")
 
     def collate_fn(self, batch):
         specs, labels, spec_lens, label_lens, file_name = zip(*batch)
-        
+     
+        specs = list(specs)
+        labels = list(labels)
         specs = pad_sequence(specs, batch_first=True)
         labels = pad_sequence(labels, batch_first=True)
 
         # Transpose specs from (batch, time, n_mels) to (batch, n_mels, time) for model input
         final_specs = specs.transpose(1, 2)
+
         return final_specs, labels, torch.tensor(spec_lens, dtype=torch.long), torch.tensor(label_lens, dtype=torch.long), file_name
     
-    def get_dataset_stats(self):
+    def get_dataset_stats(self) -> None:
         if self.datasets is None:
             raise ValueError("Data not loaded. Please load data first.")
         
