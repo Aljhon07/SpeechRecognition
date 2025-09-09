@@ -77,6 +77,7 @@ if "%1"=="extract" (
         -v "%cd%\inference:/app/inference" ^
         -v "%cd%\tools:/app/tools" ^
         -v "%cd%\config.py:/app/config.py" ^
+        -v "%cd%\librispeech:/app/librispeech" ^
         -e PYTHONPATH=/app ^
         -e GENAI_API_KEY=%GENAI_API_KEY% ^
         speech-recognition python tools/whisper_extractor.py

@@ -93,13 +93,51 @@ def collate_fn(batch):
 
 if __name__ == "__main__":
     # Example usage
-    tsv_path = config.OUTPUT_DIR / 'train.tsv'
-    root = config.COMMON_VOICE_PATH # Path to store the LibriSpeech dataset
+    from torchaudio.datasets import LIBRISPEECH
+    import os
 
-    dataloader = create_dataloader(root=root, tsv_path=tsv_path, split="test-clean", batch_size=4, sr=16000)
+    # Path to the LibriSpeech dataset
+    root = config.LIBRISPEECH_PATH  # Replace with the path where LibriSpeech is stored or will be downloaded
+    split = "test-clean"  # Specify the split (e.g., "test-clean", "train-clean-100")
 
-    for batch in dataloader:
-        print("Features shape:", batch["features"].shape)
-        print("Features lengths:", batch["features_len"])
-        print("Transcriptions:", batch["transcriptions"])
-        break
+    # Ensure the root directory exists
+    if not os.path.exists(root):
+        os.makedirs(root)
+
+    # Initialize the LibriSpeech dataset
+    dataset = LIBRISPEECH(root=root, url=split, download=True)
+
+    # Array to store all transcriptions
+    all_transcriptions = []
+
+    # Iterate through the dataset and collect transcriptions
+    for i, (waveform, sample_rate, transcript, speaker_id, chapter_id, utterance_id) in enumerate(dataset):
+        all_transcriptions.append(transcript)
+
+        # Optional: Print progress
+        if i % 100 == 0:
+            print(f"Processed {i} samples...")
+
+    # Print all transcriptions
+    print("All Transcriptions:")
+    for transcription in all_transcriptions[:10]:  # Print the first 10 transcriptions as a preview
+        print(transcription)
+
+    # Save transcriptions to a text file
+    output_file = os.path.join(config.OUTPUT_DIR, "librispeech_transcriptions.txt")
+    with open(output_file, "w", encoding="utf-8") as f:
+        for transcription in all_transcriptions:
+            f.write(transcription + "\n")
+
+    print(f"Transcriptions saved to {output_file}")
+
+    # tsv_path = config.OUTPUT_DIR / 'train.tsv'
+    # root = config.COMMON_VOICE_PATH # Path to store the LibriSpeech dataset
+
+    # dataloader = create_dataloader(root=root, tsv_path=tsv_path, split="test-clean", batch_size=4, sr=16000)
+
+    # for batch in dataloader:
+    #     print("Features shape:", batch["features"].shape)
+    #     print("Features lengths:", batch["features_len"])
+    #     print("Transcriptions:", batch["transcriptions"])
+    #     break

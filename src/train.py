@@ -132,7 +132,7 @@ class SpeechTrainer:
 
         # Whisper preserves temporal dimension, so output lengths = input lengths
         loss = self.criterion(_log_softmax, labels, inputs_len, labels_len)
-        if (mode == 'val' and step_count % 100 == 0) or (step_count % 100 == 0 and step_count > 0):
+        if (mode == 'val' and step_count % 100 == 0) or (step_count % 100 == 0 ):
             sample = output.transpose(0, 1).contiguous()
             prediction = torch.argmax(sample[0], dim=1)
             tqdm.write(f"Decoded Label: {lc.decode(labels[0].tolist())}")
@@ -140,7 +140,12 @@ class SpeechTrainer:
             # with open(self.log_file, 'a') as f:
             #     f.write(f"Step {step_count} | Loss: {loss.item():.4f}\nPrediction: {prediction.tolist()} | Labels: {labels[0].tolist()}\n")
             tqdm.write(f"Prediction: {ctc_decoder(prediction.tolist())} \nLabels: {labels[0].tolist()} ")
-
+            log_file_path = config.LOG_DIR / "predictions.log"
+            with open(log_file_path, "a", encoding="utf-8") as log_file:
+                log_file.write(f"Step {step_count} ({mode}) - {loss.item():.4f}\n")
+                log_file.write(f"Prediction: {ctc_decoder(prediction.tolist())}\n")
+                log_file.write(f"Ground Truth: {labels[0].tolist()}\n")
+                log_file.write("=" * 50 + "\n")
         return loss, 0
 
     def train(self, loaders, epoch):
@@ -277,7 +282,7 @@ class SpeechTrainer:
             print(f"Spec Stats: {spec.shape} | Min: {spec.min()} | Max: {spec.max()} | Mean: {spec.mean()} | Std: {spec.std()}")
             print(f"Loaded Specs Stats: {inputs[random_idx].shape} | Min: {inputs[random_idx].min()} | Max: {inputs[random_idx].max()} | Mean: {inputs[random_idx].mean()} | Std: {inputs[random_idx].std()}")
 
-            plot_spectrogram( inputs[random_idx], spec, sample_rate=sr)
+            plot_spectrogram( spec, unpadded_spec, sample_rate=sr)
             return
 
     def save_checkpoint(self,epoch, id = random.randint(0, 10000)):
@@ -318,11 +323,10 @@ def main():
 
     criterion = nn.CTCLoss(blank=0, reduction='mean', zero_infinity=True)
     optimizer = optim.AdamW(model.parameters(), lr=config.H_PARAMS["BASE_LR"])
-    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=10, final_div_factor=100, pct_start=0.2, cycle_momentum=False)
-
+    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=10, final_div_factor=100, pct_start=0.3, cycle_momentum=False)
     trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device, total_steps=total_steps, speech_module=speech_module)
     
-    trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=False, sort=True, checkpoint_name="checkpoint_epoch_2_train_7.1314.pth")
+    trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=False, sort=True, checkpoint_name="checkpoint_epoch_5_train_48.9481.pth")
     
 if __name__ == "__main__":
     main()

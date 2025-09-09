@@ -24,12 +24,12 @@ AUDIO_PARAMS = {
 }
 
 H_PARAMS = {
-    "BASE_LR": 0.003,
-    "TOTAL_EPOCH": 30,
+    "BASE_LR": 0.005,
+    "TOTAL_EPOCH":50,
     "VOCAB_SIZE": 5000,
     "N_FEATS": 80,
-    "VERBOSE": True,
-    "BATCH_SIZE": 8
+    "VERBOSE": False,
+    "BATCH_SIZE": 5
 }
 
 # Logging configuration for shape tracking

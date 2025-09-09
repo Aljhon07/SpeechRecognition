@@ -135,6 +135,7 @@ def plot_spectrogram(orig, normalized, sample_rate=16000):
     axs[1, 1].set_ylabel('Frequency')
 
     # Adjust layout to avoid overlap
+    plt.savefig(config.OUTPUT_DIR / f"spectrogram_{time.strftime('%Y%m%d-%H%M%S')}.png")
     plt.tight_layout()
     plt.show()
 

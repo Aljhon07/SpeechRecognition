@@ -29,13 +29,13 @@ class LightWeightModel(nn.Module):
         
         # Adaptation layer to connect Whisper output to BiGRU
         self.adaptation = nn.Sequential(
-            nn.Linear(whisper_output_dim, 256),
-            nn.LayerNorm(256),
+            nn.Linear(whisper_output_dim, 128),
+            nn.LayerNorm(128),
             nn.GELU(),
             nn.Dropout(dropout)
         )
         
-        self.bigru = nn.GRU(input_size=256, hidden_size=512,
+        self.bigru = nn.GRU(input_size=128, hidden_size=512,
                             num_layers=num_layers, dropout=dropout,
                             bidirectional=True)
         
