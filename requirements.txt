@@ -1,0 +1,22 @@
+# Requirements for Speech Recognition Project
+torch>=2.0.0
+torchaudio>=2.0.0
+torchvision>=0.15.0
+flask>=2.3.0
+flask-cors>=4.0.0
+pandas>=2.0.0
+numpy>=1.24.0
+matplotlib>=3.7.0
+tqdm>=4.65.0
+tqdm-loggable>=0.1.0
+librosa>=0.10.0
+google-genai>=1.0.0
+rapidfuzz>=3.0.0
+pathlib2>=2.3.7
+setuptools>=65.0.0
+wheel>=0.40.0
+jiwer>=3.0.0
+sentencepiece>=0.1.99
+# Whisper frontend dependencies
+transformers>=4.35.0
+datasets>=2.12.0
