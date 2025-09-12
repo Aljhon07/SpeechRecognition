@@ -1,17 +1,17 @@
 version: "3.8"
 
 services:
-  speech-recognition:
+  lingua-speech:
     build: .
-    container_name: speech-recognition-app
+    container_name: lingua-speech
     ports:
       - "8080:8080"
     volumes:
       # Data directories (always mounted)
-      - ./output:/app/output
-      - ./logs:/app/logs
-      - ./uploads:/app/uploads
-      - ./commonvoice:/app/commonvoice
+      # - ./output:/app/output
+      # - ./logs:/app/logs
+      # - ./uploads:/app/uploads
+      # - ./commonvoice:/app/commonvoice
       # Source code directories (for development - comment out for production)
       - ./src:/app/src
       - ./inference:/app/inference

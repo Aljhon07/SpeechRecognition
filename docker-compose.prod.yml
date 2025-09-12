@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  speech-recognition:
+  lingua-speech:
     build: .
-    container_name: speech-recognition-prod
+    container_name: lingua-speech-prod
     ports:
       - "8080:8080"
     volumes:
