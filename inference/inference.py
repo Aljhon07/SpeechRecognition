@@ -72,19 +72,21 @@ def inference(file_path):
         decoded_pred = lc.decode(raw_prediction, str(LOCAL_MODEL_PATH / f"{config.LANGUAGE}.model"))
 
         pred = decoded_pred
-        try:
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=f"Correct the grammar and spelling of this speech recognition output so that it makes sense: '{decoded_pred}'. Return only the corrected text without explanations.",
-            )
-            pred = response.text
-        except Exception as e:
-            print(f"Error during AI enhancement: {e}")
-            pred = decoded_pred
 
-        print(f"Orig: {decoded_pred}")
-        print(f"AI Enhanced: {pred}")
-        return pred
+        if os.getenv("POST_PROCESS_WITH_AI", "false").lower() == "false":
+            try:
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=f"Correct the grammar and spelling of this speech recognition output so that it makes sense: '{decoded_pred}'. Return only the corrected text without explanations.",
+                )
+                pred = response.text
+            except Exception as e:
+                print(f"Error during AI enhancement: {e}")
+                pred = decoded_pred
+
+            print(f"Orig: {decoded_pred}")
+            print(f"AI Enhanced: {pred}")
+            return pred
 
 if __name__ == '__main__':
     # path = config.COMMON_VOICE_PATH / 'clips' / 'common_voice_en_16759015.mp3'

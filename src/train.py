@@ -80,9 +80,9 @@ class SpeechTrainer:
                     self.check_sample = False
 
             train_loss = self.train(train_loaders, epoch)
-            self.save_checkpoint(epoch, id=f"train_{train_loss:.4f}")
+            # self.save_checkpoint(epoch, id=f"train_{train_loss:.4f}")
             val_loss = self.validate(val_loaders, epoch)
-            self.save_checkpoint(epoch, id=f"val_{val_loss:.4f}")
+            # self.save_checkpoint(epoch, id=f"val_{val_loss:.4f}")
 
             if val_loss <= 0.5:
                 self.save_checkpoint(epoch, id=f"target_reached_{val_loss:.2f}")

@@ -2,8 +2,8 @@ version: "3.8"
 
 services:
   lingua-speech:
-    build: .
-    container_name: lingua-speech
+    image: lingua-speech-dev
+    container_name: lingua-speech-dev
     ports:
       - "8080:8080"
     volumes:
@@ -18,9 +18,9 @@ services:
       - ./tools:/app/tools
       - ./config.py:/app/config.py
     environment:
+      - POST_PROCESS_WITH_AI=false
       - PYTHONPATH=/app
       - FLASK_ENV=${FLASK_ENV:-production}
-      - FLASK_APP=inference/app.py
       - FLASK_DEBUG=${FLASK_DEBUG:-0}
       - GENAI_API_KEY=${GENAI_API_KEY}
     restart: unless-stopped
