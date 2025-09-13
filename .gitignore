@@ -12,8 +12,13 @@ data/
 *.txt
 *.idea
 *.json
-output/
 history/
 librispeech/
+spectrograms/
+buckets/
+checkpoints/
 
+
+!output/**/*.vocab
+!output/**/*.model
 !requirements.txt
