@@ -3,6 +3,7 @@
 *.npy
 *.tsv
 *.pt
+*.png
 __pycache__/
 sentences.txt
 data/

@@ -82,7 +82,6 @@ class SpeechTrainer:
             train_loss = self.train(train_loaders, epoch)
             self.save_checkpoint(epoch, id=f"train_{train_loss:.4f}")
             val_loss = self.validate(val_loaders, epoch)
-            val_loss = 0.0
             self.save_checkpoint(epoch, id=f"val_{val_loss:.4f}")
 
             if val_loss <= 0.5:
@@ -141,11 +140,15 @@ class SpeechTrainer:
             # with open(self.log_file, 'a') as f:
             #     f.write(f"Step {step_count} | Loss: {loss.item():.4f}\nPrediction: {prediction.tolist()} | Labels: {labels[0].tolist()}\n")
             tqdm.write(f"Prediction: {ctc_decoder(prediction.tolist())} \nLabels: {labels[0].tolist()} ")
+            tqdm.write(f"Decoded Labels: {lc.decode(labels[0].tolist())} | Prediction: {lc.decode(ctc_decoder(prediction.tolist()))}")
+
             log_file_path = config.LOG_DIR / "predictions.log"
             with open(log_file_path, "a", encoding="utf-8") as log_file:
                 log_file.write(f"Step {step_count} ({mode}) - {loss.item():.4f}\n")
                 log_file.write(f"Prediction: {ctc_decoder(prediction.tolist())}\n")
                 log_file.write(f"Ground Truth: {labels[0].tolist()}\n")
+                log_file.write(f"Decoded Ground Truth: {lc.decode(labels[0].tolist())}\n")
+                log_file.write(f"Decoded Prediction: {lc.decode(ctc_decoder(prediction.tolist()))}\n")
                 log_file.write("=" * 50 + "\n")
         return loss, 0
 
@@ -191,15 +194,6 @@ class SpeechTrainer:
         progress_bar.close()
         return total_loss / total_step
 
-    def get_blank_token_penalty(self, current_step):
-        max_penalty = 0.5
-        max_steps = 0.4 * self.total_steps
-        if current_step < max_steps:
-            return 0.0
-        else:
-            return min(max_penalty, (current_step - max_steps) / (self.total_steps - max_steps) * max_penalty)
-
-        
     def validate(self, loaders, epoch):
         self.model.eval()
         total_loss = 0
