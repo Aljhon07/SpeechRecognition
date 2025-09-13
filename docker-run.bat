@@ -3,14 +3,14 @@ REM Speech Recognition Docker Management Script for Windows
 
 if "%1"=="build" (
     echo Building Speech Recognition Docker image...
-    docker build -t lingua-speech:1.0.0 .
+    docker build -t sephirah07/lingua-speech:1.0.0 .
     echo Build completed!
     goto :eof
 )
 
 if "%1"=="start" (
     echo Starting Speech Recognition application...
-    docker-compose up -d lingua-speech:1.0.0
+    docker-compose up -d sephirah07/lingua-speech:1.0.0
     echo Application started! Access it at http://localhost:8080
     goto :eof
 )
@@ -23,13 +23,13 @@ if "%1"=="stop" (
 
 if "%1"=="restart" (
     echo Restarting Speech Recognition application...
-    docker-compose restart lingua-speech:1.0.0
+    docker-compose restart sephirah07/lingua-speech:1.0.0
     goto :eof
 )
 
 if "%1"=="logs" (
     echo Showing application logs...
-    docker-compose logs -f lingua-speech:1.0.0
+    docker-compose logs -f sephirah07/lingua-speech:1.0.0
     goto :eof
 )
 
@@ -46,7 +46,7 @@ if "%1"=="train" (
         -v "%cd%\main.py:/app/main.py" ^
         -e PYTHONPATH=/app ^
         -e GENAI_API_KEY=%GENAI_API_KEY% ^
-        lingua-speech:1.0.0 python main.py
+        sephirah07/lingua-speech:1.0.0 python main.py
     goto :eof
 )
 
@@ -63,7 +63,7 @@ if "%1"=="preprocess" (
         -v "%cd%\config.py:/app/config.py" ^
         -e PYTHONPATH=/app ^
         -e GENAI_API_KEY=%GENAI_API_KEY% ^
-        lingua-speech:1.0.0 python -c "from src.preprocess import preprocess; preprocess()"
+        sephirah07/lingua-speech:1.0.0 python -c "from src.preprocess import preprocess; preprocess()"
     goto :eof
 )
 
@@ -80,13 +80,13 @@ if "%1"=="extract" (
         -v "%cd%\librispeech:/app/librispeech" ^
         -e PYTHONPATH=/app ^
         -e GENAI_API_KEY=%GENAI_API_KEY% ^
-        lingua-speech:1.0.0 python tools/whisper_extractor.py
+        sephirah07/lingua-speech:1.0.0 python tools/whisper_extractor.py
     goto :eof
 )
 
 if "%1"=="shell" (
     echo Opening shell in container...
-    docker-compose exec lingua-speech:1.0.0 bash
+    docker-compose exec sephirah07/lingua-speech:1.0.0 bash
     goto :eof
 )
 

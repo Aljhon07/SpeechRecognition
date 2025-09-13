@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   lingua-speech:
-    image: lingua-speech:1.0.0
+    image: sephirah07/lingua-speech:1.0.0
     container_name: lingua-speech
     ports:
       - "8080:8080"
