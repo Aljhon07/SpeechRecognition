@@ -8,7 +8,6 @@ import torchaudio
 import torch
 from src.preprocess import LogMelSpectrogram
 from tools.utils import double_vad
-import winsound
 from tools import language_corpus as lc
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
@@ -137,7 +136,6 @@ if __name__ == '__main__':
     #     random_idx = random.randint(0, len(specs) - 1)
     #     print(f"Specs Stats: {specs[random_idx].shape} | Min: {specs[random_idx].min()} | Max: {specs[random_idx].max()} | Mean: {specs[random_idx].mean()} | Std: {specs[random_idx].std()}")
     #     print(f"Transcription: {lc.decode(labels[random_idx].tolist())}")
-    #     winsound.PlaySound(config.WAVS_PATH / f"{file_name[random_idx]}.wav", winsound.SND_FILENAME)
     #     plot_spectrogram(specs[random_idx], specs[random_idx], sample_rate=16000)
 
 

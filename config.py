@@ -1,5 +1,5 @@
 from pathlib import Path
-
+import os
 # Get the absolute path to the current config file's directory
 BASE_DIR = Path(__file__).parent.resolve()
 LANGUAGE = "en"
@@ -12,6 +12,7 @@ CHECKPOINT_DIR = OUTPUT_DIR / "checkpoints"
 UPLOAD_DIR = BASE_DIR / "uploads"
 SRC_DIR = BASE_DIR / "src"
 MODEL_DIR = BASE_DIR / 'inference' / "models"
+GENAI_API_KEY = os.getenv("GENAI_API_KEY", "AIzaSyCy9YBM9s8K3jTnk4jvs7jMVz8ln5CJnZM")
 
 AUDIO_PARAMS = {
     "SAMPLE_RATE": 16000,
@@ -21,9 +22,10 @@ AUDIO_PARAMS = {
 
 H_PARAMS = {
     "BASE_LR": 0.003,
-    "TOTAL_EPOCH": 20,
+    "TOTAL_EPOCH": 30,
     "VOCAB_SIZE": 5000,
     "N_FEATS": 80,
     "VERBOSE": False,
     "BATCH_SIZE": 32
 }
+

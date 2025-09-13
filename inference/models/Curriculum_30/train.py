@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import config
-import winsound
 import random
 import torch.nn.functional as F
 from tools.utils import plot_spectrogram, ctc_decoder
@@ -241,7 +240,6 @@ class SpeechTrainer:
             audio, sr = torchaudio.load(audio_path)       
             spec = LogMelSpectrogram()(audio)
 
-            winsound.PlaySound(audio_path, winsound.SND_FILENAME)
             print(f"Spec Stats: {spec.shape} | Min: {spec.min()} | Max: {spec.max()} | Mean: {spec.mean()} | Std: {spec.std()}")
             print(f"Loaded Specs Stats: {inputs[random_idx].shape} | Min: {inputs[random_idx].min()} | Max: {inputs[random_idx].max()} | Mean: {inputs[random_idx].mean()} | Std: {inputs[random_idx].std()}")
 

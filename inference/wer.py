@@ -7,14 +7,16 @@ from tools.utils import normalize_text, rms_normalize
 import torchaudio
 
 
-test_tsv = config.BASE_DIR / 'inference' / 'test' / 'en' / 'validated.tsv'
+test_tsv = config.BASE_DIR / 'inference' / 'test' / 'en' / 'other.tsv'
 test_clips = config.BASE_DIR / 'inference' / 'test' / 'en' / 'clips' 
 log_file = config.BASE_DIR / 'inference' / 'test' / 'en' / 'wer.log'
-if not os.path.exists(log_file):
-    with open(log_file, 'w') as f:
-        f.write("")
+
     
 def evaluate_model(tsv_file):
+    if not os.path.exists(log_file):
+        with open(log_file, 'w') as f:
+            f.write("")
+
     error_rate = 0.0
     step_count = 0
 
