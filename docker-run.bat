@@ -39,7 +39,7 @@ if "%1"=="train" (
     docker run --rm --tty --gpus all^
         -v "%cd%\output:/app/output" ^
         -v "%cd%\logs:/app/logs" ^
-        -v "%cd%\commonvoice:/app/commonvoice" ^
+        -v "%cd%\commonvoice:/app/librispeech" ^
         -v "%cd%\src:/app/src" ^
         -v "%cd%\inference:/app/inference" ^
         -v "%cd%\tools:/app/tools" ^
@@ -56,7 +56,6 @@ if "%1"=="preprocess" (
     docker run --rm --tty ^
         -v "%cd%\output:/app/output" ^
         -v "%cd%\logs:/app/logs" ^
-        -v "%cd%\commonvoice:/app/commonvoice" ^
         -v "%cd%\commonvoice:/app/librispeech" ^
         -v "%cd%\src:/app/src" ^
         -v "%cd%\inference:/app/inference" ^

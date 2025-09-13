@@ -51,7 +51,7 @@ COPY config.py ./
 COPY __init__.py ./
 
 # Create required directories for data persistence
-RUN mkdir -p /app/output /app/logs /app/uploads /app/commonvoice
+RUN mkdir -p /app/output /app/logs /app/uploads /app/librispeech
 
 # RUN apt-get purge -y \
 #     build-essential \

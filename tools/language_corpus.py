@@ -4,12 +4,10 @@ import config
 
 
 
-def train(model_type='char', vocab_size=config.H_PARAMS["VOCAB_SIZE"],model_prefix = config.LANGUAGE):
+def train(model_type='char', vocab_size=config.H_PARAMS["VOCAB_SIZE"],model_prefix = config.LANGUAGE, input_file = str(config.OUTPUT_DIR / "transcriptions.txt")):
     if vocab_size > 100:
         model_type = 'bpe'
         
-    input_file = config.OUTPUT_DIR / (f"{config.LANGUAGE}_sentences.txt"
-                                       f"")
     print(f"Training SentencePiece model with input file: {input_file}")
     model_path = config.OUTPUT_DIR / model_prefix
 

@@ -202,6 +202,122 @@ def ctc_decoder(preds):
 
 def wer(ref, hyp):
     pass
+
+def audio_sanity_check(loader, speech_module, device):
+    """
+    Comprehensive sanity check for audio data with playback and visualization
+    Args:
+        loader: DataLoader to test
+        speech_module: SpeechModule containing original data
+        device: torch device for tensor operations
+    """
+    import random
+    import tempfile
+    import os
+    import winsound
+    from tools import language_corpus as lc
+    
+    print("\n" + "="*50)
+    print("🔍 AUDIO SANITY CHECK")
+    print("="*50)
+    
+    for batch in loader:
+        # Unpack 6 elements from LibriSpeech dataset
+        inputs, labels, input_len, labels_len, file_name, unpadded_specs = batch
+        inputs, labels = inputs.to(device), labels.to(device)
+        random_idx = random.randint(0, inputs.shape[0] - 1)
+
+        # Basic validation
+        if inputs is None or labels is None:
+            raise ValueError("Inputs or labels are None.")
+        if len(inputs) == 0 or len(labels) == 0:
+            raise ValueError("Inputs or labels are empty.")
+        if inputs.shape[0] != labels.shape[0]:
+            raise ValueError("Batch size mismatch between inputs and labels.")
+        if input_len.shape[0] != labels_len.shape[0]:
+            raise ValueError("Batch size mismatch between input lengths and label lengths.")
+
+        print(f"📊 Batch Information:")
+        print(f"  Inputs shape: {inputs.shape}")
+        print(f"  Labels shape: {labels.shape}")
+        print(f"  Input lengths shape: {input_len.shape}")
+        print(f"  Label lengths shape: {labels_len.shape}")
+        print(f"  Input lengths: {input_len}")
+        print(f"  Label lengths: {labels_len}")
+
+        print(f"\n🎯 Sample Details (Index {random_idx}):")
+        print(f"  File name: {file_name[random_idx]}")
+        print(f"  Input Shape: {inputs[random_idx].shape}")
+        print(f"  Label Shape: {labels[random_idx].shape}")
+        print(f"  Input length: {input_len[random_idx]}")
+        print(f"  Label length: {labels_len[random_idx]}")
+        print(f"  Decoded Label: '{lc.decode(labels[random_idx].tolist())}'")
+
+        # Spectrogram information
+        print(f"\n📈 Spectrogram Details:")
+        print(f"  Unpadded spec shape: {unpadded_specs[random_idx].shape}")
+        print(f"  Padded spec shape: {inputs[random_idx].shape}")
+        print(f"  Spec Stats: Min: {inputs[random_idx].min():.3f} | Max: {inputs[random_idx].max():.3f} | Mean: {inputs[random_idx].mean():.3f} | Std: {inputs[random_idx].std():.3f}")
+        
+        # Audio playback
+        print(f"\n🎵 Audio Playback:")
+        print(f"  Playing audio for: {file_name[random_idx]}")
+        print(f"  📝 Expected transcription: '{lc.decode(labels[random_idx].tolist())}'")
+        print(f"  👂 Listen carefully and verify the audio matches!")
+        
+        # Find and play audio
+        audio_played = False
+        if hasattr(speech_module, 'train_data'):
+            original_data = speech_module.train_data
+            for item in original_data:
+                if item['file_name'] == file_name[random_idx]:
+                    try:
+                        # Use waveform data from memory (safer than file paths)
+                        waveform = item['waveform']
+                        sample_rate = item['sample_rate']
+                        
+                        # Create temporary WAV file in system temp directory
+                        # This is completely separate from original files
+                        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_wav:
+                            temp_wav_path = temp_wav.name
+                            
+                        print(f"  📁 Temp file location: {temp_wav_path}")
+                        print(f"  ⏳ Creating temporary WAV for playback...")
+                        
+                        # Save waveform as WAV and play
+                        torchaudio.save(temp_wav_path, waveform, sample_rate)
+                        print(f"  🔊 Playing audio now...")
+                        winsound.PlaySound(temp_wav_path, winsound.SND_FILENAME)
+                        
+                        # Clean up temporary file immediately
+                        os.unlink(temp_wav_path)
+                        print(f"  ✅ Audio played successfully! Temp file cleaned up.")
+                        audio_played = True
+                        
+                    except Exception as e:
+                        print(f"  ❌ Error playing audio: {e}")
+                        try:
+                            if os.path.exists(temp_wav_path):
+                                os.unlink(temp_wav_path)
+                        except:
+                            pass
+                    break
+            
+        if not audio_played:
+            if not hasattr(speech_module, 'train_data'):
+                print(f"  ⚠️ Speech module data not available for audio playback")
+            else:
+                print(f"  ⚠️ Could not find audio data for {file_name[random_idx]}")
+        
+        # Spectrogram visualization
+        print(f"\n📊 Displaying spectrogram comparison...")
+        print(f"  🔍 Compare unpadded vs padded spectrograms")
+        plot_spectrogram(unpadded_specs[random_idx], inputs[random_idx])
+        
+        print(f"\n✅ Sanity check completed!")
+        print("="*50)
+        return
+
 if __name__ == "__main__":
     # with open(os.path.join(config.OUTPUT_DIR / 'buckets', 'bucket_3.0.json'), 'r') as f:
     #         data = json.load(f)

@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 import logging
 
+from torchaudio.datasets import LIBRISPEECH
+
 # Get the absolute path to the current config file's directory
 BASE_DIR = Path(__file__).parent.resolve()
 LANGUAGE = "en"
@@ -23,6 +25,15 @@ AUDIO_PARAMS = {
     "HOP_LENGTH": 160      # Whisper standard (10ms hop at 16kHz)
 }
 
+LIBRISPEECH_SUBSETS = [
+    # "train-clean-100", 
+    # "train-clean-360", 
+    # "train-other-500", 
+    # "dev-clean", 
+    # "dev-other", 
+    "test-clean", 
+    # "test-other"
+]
 H_PARAMS = {
     "BASE_LR": 0.005,
     "TOTAL_EPOCH":20,
