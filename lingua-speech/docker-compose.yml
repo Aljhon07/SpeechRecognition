@@ -13,10 +13,10 @@ services:
       # - ./uploads:/app/uploads
       # - ./commonvoice:/app/commonvoice
       # Source code directories (for development - comment out for production)
-      - ./src:/app/src
-      - ./inference:/app/inference
-      - ./tools:/app/tools
-      - ./config.py:/app/config.py
+      # - ./src:/app/src
+      # - ./inference:/app/inference
+      # - ./tools:/app/tools
+      # - ./config.py:/app/config.py
     environment:
       - POST_PROCESS_WITH_AI=false
       - PYTHONPATH=/app

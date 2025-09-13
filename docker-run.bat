@@ -1,16 +1,17 @@
 @echo off
 REM Speech Recognition Docker Management Script for Windows
+set IMAGE_NAME=sephirah07/lingua-speech:dev
 
 if "%1"=="build" (
     echo Building Speech Recognition Docker image...
-    docker build -t lingua-speech-dev .
+    docker build -t %IMAGE_NAME% .
     echo Build completed!
     goto :eof
 )
 
 if "%1"=="start" (
     echo Starting Speech Recognition application...
-    docker-compose up -d lingua-speech-dev
+    docker-compose up -d %IMAGE_NAME% 
     echo Application started! Access it at http://localhost:8080
     goto :eof
 )
@@ -23,13 +24,13 @@ if "%1"=="stop" (
 
 if "%1"=="restart" (
     echo Restarting Speech Recognition application...
-    docker-compose restart lingua-speech-dev
+    docker-compose restart %IMAGE_NAME% 
     goto :eof
 )
 
 if "%1"=="logs" (
     echo Showing application logs...
-    docker-compose logs -f lingua-speech-dev
+    docker-compose logs -f %IMAGE_NAME% 
     goto :eof
 )
 
@@ -46,7 +47,7 @@ if "%1"=="train" (
         -v "%cd%\main.py:/app/main.py" ^
         -e PYTHONPATH=/app ^
         -e GENAI_API_KEY=%GENAI_API_KEY% ^
-        lingua-speech-dev python main.py
+        %IMAGE_NAME%  python main.py
     goto :eof
 )
 
@@ -63,7 +64,7 @@ if "%1"=="preprocess" (
         -v "%cd%\config.py:/app/config.py" ^
         -e PYTHONPATH=/app ^
         -e GENAI_API_KEY=%GENAI_API_KEY% ^
-        lingua-speech-dev python -c "from src.preprocess import preprocess; preprocess()"
+        %IMAGE_NAME%  python -c "from src.preprocess import preprocess; preprocess()"
     goto :eof
 )
 
@@ -80,13 +81,13 @@ if "%1"=="extract" (
         -v "%cd%\librispeech:/app/librispeech" ^
         -e PYTHONPATH=/app ^
         -e GENAI_API_KEY=%GENAI_API_KEY% ^
-        lingua-speech-dev python tools/whisper_extractor.py
+        %IMAGE_NAME%  python tools/whisper_extractor.py
     goto :eof
 )
 
 if "%1"=="shell" (
     echo Opening shell in container...
-    docker-compose exec lingua-speech-dev bash
+    docker-compose exec %IMAGE_NAME%  bash
     goto :eof
 )
 
