@@ -127,8 +127,8 @@ class SpeechModule:
                 continue
                 
             # Use train data for training and dev data for validation
-            train_items = self.train_data[key][:10]
-            dev_items = self.dev_data[key][:5]
+            train_items = self.train_data[key]
+            dev_items = self.dev_data[key]
 
             train_dataset = SpeechDataset(train_items, augmented=True)
             val_dataset = SpeechDataset(dev_items, augmented=False)

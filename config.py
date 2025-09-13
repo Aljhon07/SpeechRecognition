@@ -25,16 +25,16 @@ AUDIO_PARAMS = {
 
 H_PARAMS = {
     "BASE_LR": 0.005,
-    "TOTAL_EPOCH":50,
+    "TOTAL_EPOCH":20,
     "VOCAB_SIZE": 5000,
     "N_FEATS": 80,
     "VERBOSE": False,
-    "BATCH_SIZE": 5
+    "BATCH_SIZE": 32
 }
 
 # Logging configuration for shape tracking
 LOGGING_CONFIG = {
-    "SHAPE_TRACKING": True,  # Enable/disable shape tracking logs
+    "SHAPE_TRACKING": False,  # Enable/disable shape tracking logs
     "LEVEL": "INFO",         # Options: DEBUG, INFO, WARNING, ERROR
     "FORMAT": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 }

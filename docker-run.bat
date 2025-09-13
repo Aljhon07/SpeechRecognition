@@ -36,7 +36,7 @@ if "%1"=="logs" (
 
 if "%1"=="train" (
     echo Running training with TTY and service volumes...
-    docker run --rm --tty ^
+    docker run --rm --tty --gpus all^
         -v "%cd%\output:/app/output" ^
         -v "%cd%\logs:/app/logs" ^
         -v "%cd%\commonvoice:/app/commonvoice" ^

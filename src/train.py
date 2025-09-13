@@ -80,9 +80,10 @@ class SpeechTrainer:
                     self.check_sample = False
 
             train_loss = self.train(train_loaders, epoch)
-            # self.save_checkpoint(epoch, id=f"train_{train_loss:.4f}")
+            self.save_checkpoint(epoch, id=f"train_{train_loss:.4f}")
             val_loss = self.validate(val_loaders, epoch)
-            # self.save_checkpoint(epoch, id=f"val_{val_loss:.4f}")
+            val_loss = 0.0
+            self.save_checkpoint(epoch, id=f"val_{val_loss:.4f}")
 
             if val_loss <= 0.5:
                 self.save_checkpoint(epoch, id=f"target_reached_{val_loss:.2f}")
@@ -103,7 +104,7 @@ class SpeechTrainer:
 
         inputs_len = inputs_len // 2
         inputs, labels = inputs.to(self.device), labels.to(self.device)
-        inputs_len, labels_len = inputs_len.to(self.device), labels_len.to(self.device)
+        # inputs_len, labels_len = inputs_len.to(self.device), labels_len.to(self.device)
 
         bs = inputs.shape[0]
         hidden = self.model._init_hidden(batch_size=bs, device=self.device)
@@ -132,7 +133,7 @@ class SpeechTrainer:
 
         # Whisper preserves temporal dimension, so output lengths = input lengths
         loss = self.criterion(_log_softmax, labels, inputs_len, labels_len)
-        if (mode == 'val' and step_count % 100 == 0) or (step_count % 100 == 0 ):
+        if (mode == 'val' and step_count % 100 == 0) or (step_count % 100 == 0):
             sample = output.transpose(0, 1).contiguous()
             prediction = torch.argmax(sample[0], dim=1)
             tqdm.write(f"Decoded Label: {lc.decode(labels[0].tolist())}")
@@ -242,7 +243,6 @@ class SpeechTrainer:
         for batch in loaders:
             inputs, labels, input_len, labels_len, file_name = batch
             inputs, labels = inputs.to(self.device), labels.to(self.device)
-            input_len, labels_len = input_len.to(self.device), labels_len.to(self.device)
             random_idx = random.randint(0, inputs.shape[0] - 1)
 
             if inputs is None or labels is None:
@@ -312,6 +312,7 @@ class SpeechTrainer:
         return start_epoch
     
 def main():
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     model = Model().to(device)

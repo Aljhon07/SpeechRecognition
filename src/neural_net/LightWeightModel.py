@@ -6,9 +6,8 @@ import config
 import logging
 import torch.nn.utils.rnn as rnn_utils
 
-# Set up logging for model shape tracking
 logger = logging.getLogger(__name__)
-verbose = True  # Force verbose on for debugging
+verbose = config.H_PARAMS['VERBOSE']  
 
 class LightWeightModel(nn.Module):
 
@@ -17,17 +16,13 @@ class LightWeightModel(nn.Module):
         self.num_layers = num_layers
         self.hidden_size = hidden_size
         
-        # Replace CNN with frozen Whisper tiny encoder
         self.whisper_encoder = WhisperModel.from_pretrained("openai/whisper-tiny").encoder
         
-        # Freeze all Whisper parameters
         for param in self.whisper_encoder.parameters():
             param.requires_grad = False
         
-        # Whisper tiny outputs 384-dimensional features
         whisper_output_dim = 384
         
-        # Adaptation layer to connect Whisper output to BiGRU
         self.adaptation = nn.Sequential(
             nn.Linear(whisper_output_dim, 128),
             nn.LayerNorm(128),
@@ -53,7 +48,6 @@ class LightWeightModel(nn.Module):
         if verbose:
             print(f"Model forward - Input shape: {x.shape}")
 
-        # Forward through frozen Whisper encoder
         with torch.no_grad():
             whisper_outputs = self.whisper_encoder(x)
             whisper_features = whisper_outputs.last_hidden_state  # (batch, time, 384)
@@ -61,7 +55,6 @@ class LightWeightModel(nn.Module):
         if verbose:
             print(f"Whisper Output Shape: {whisper_features.shape}")
 
-        # Adapt features for BiGRU
         x = self.adaptation(whisper_features)  # (batch, time, 128)
 
         if verbose:
@@ -89,7 +82,6 @@ class LightWeightModel(nn.Module):
             print(f"After layer norm/dropout shape: {x.shape}")
 
         final_output = self.final_fc(x)
-        logger.info(f"Final model output shape: {final_output.shape}")
 
         return final_output, hidden  # (time, batch, n_class)
 
