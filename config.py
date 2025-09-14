@@ -35,7 +35,7 @@ LIBRISPEECH_SUBSETS = [
     # "test-other"
 ]
 H_PARAMS = {
-    "BASE_LR": 0.05,
+    "BASE_LR": 0.005,
     "TOTAL_EPOCH":700,
     "VOCAB_SIZE": 5000,
     "N_FEATS": 80,

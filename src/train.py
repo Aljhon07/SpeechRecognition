@@ -59,7 +59,7 @@ class SpeechTrainer:
             start_epoch = self.load_checkpoint(config.CHECKPOINT_DIR / checkpoint_name)
             print(f"Resuming training from epoch {start_epoch}")
 
-        initial_bias =  -0.2
+        initial_bias =  0.0
         final_bias = 0.0
         decay_epochs = 3
         new_bias = self.model.final_fc.bias.data[0]
@@ -72,8 +72,8 @@ class SpeechTrainer:
                 
             # Use simple train/val split from LibriSpeech
             if self.check_sample:
-                audio_sanity_check(self.loaders['train'], self.speech_module, self.device)
-                audio_sanity_check(self.loaders['val'], self.speech_module, self.device)
+                # audio_sanity_check(self.loaders['train'], self.speech_module, self.device)
+                # audio_sanity_check(self.loaders['val'], self.speech_module, self.device)
                 self.check_sample = False
 
             train_loss = self.train(self.loaders, epoch, new_bias)

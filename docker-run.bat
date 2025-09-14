@@ -34,22 +34,47 @@ if "%1"=="logs" (
     goto :eof
 )
 
+:: Detect GPU availability
+set "HAS_GPU=false"
+for /f "tokens=*" %%i in ('wmic path win32_videocontroller get name ^| find /I "NVIDIA"') do (
+    set "HAS_GPU=true"
+)
+
 if "%1"=="train" (
     echo Running training with TTY and service volumes...
-    docker run --rm --tty --gpus all^
-        -v "%cd%\output:/app/output" ^
-        -v "%cd%\logs:/app/logs" ^
-        -v "%cd%\commonvoice:/app/librispeech" ^
-        -v "%cd%\src:/app/src" ^
-        -v "%cd%\inference:/app/inference" ^
-        -v "%cd%\tools:/app/tools" ^
-        -v "%cd%\config.py:/app/config.py" ^
-        -v "%cd%\main.py:/app/main.py" ^
-        -e PYTHONPATH=/app ^
-        -e GENAI_API_KEY=%GENAI_API_KEY% ^
-        %IMAGE_NAME%  python main.py
+
+    if "%HAS_GPU%"=="true" (
+        echo GPU detected - using --gpus all
+        docker run --rm --tty --gpus all ^
+            -v "%cd%\output:/app/output" ^
+            -v "%cd%\logs:/app/logs" ^
+            -v "%cd%\commonvoice:/app/librispeech" ^
+            -v "%cd%\src:/app/src" ^
+            -v "%cd%\inference:/app/inference" ^
+            -v "%cd%\tools:/app/tools" ^
+            -v "%cd%\config.py:/app/config.py" ^
+            -v "%cd%\main.py:/app/main.py" ^
+            -e PYTHONPATH=/app ^
+            -e GENAI_API_KEY=%GENAI_API_KEY% ^
+            %IMAGE_NAME% python main.py
+    ) else (
+        echo No GPU detected - running without --gpus
+        docker run --rm --tty ^
+            -v "%cd%\output:/app/output" ^
+            -v "%cd%\logs:/app/logs" ^
+            -v "%cd%\commonvoice:/app/librispeech" ^
+            -v "%cd%\src:/app/src" ^
+            -v "%cd%\inference:/app/inference" ^
+            -v "%cd%\tools:/app/tools" ^
+            -v "%cd%\config.py:/app/config.py" ^
+            -v "%cd%\main.py:/app/main.py" ^
+            -e PYTHONPATH=/app ^
+            -e GENAI_API_KEY=%GENAI_API_KEY% ^
+            %IMAGE_NAME% python main.py
+    )
     goto :eof
 )
+
 
 if "%1"=="preprocess" (
     echo Running preprocessing with TTY and service volumes...
