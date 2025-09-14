@@ -59,19 +59,28 @@ class SpeechTrainer:
             start_epoch = self.load_checkpoint(config.CHECKPOINT_DIR / checkpoint_name)
             print(f"Resuming training from epoch {start_epoch}")
 
+        initial_bias =  -0.2
+        final_bias = 0.0
+        decay_epochs = 3
+        new_bias = self.model.final_fc.bias.data[0]
         for epoch in range(start_epoch, num_epochs):
             epoch += 1
             
+            if epoch <= decay_epochs:
+                new_bias = initial_bias + (final_bias - initial_bias) * (epoch - 1) / (decay_epochs - 1)
+                self.model.final_fc.bias.data[0] = new_bias
+                
             # Use simple train/val split from LibriSpeech
             if self.check_sample:
                 audio_sanity_check(self.loaders['train'], self.speech_module, self.device)
                 audio_sanity_check(self.loaders['val'], self.speech_module, self.device)
                 self.check_sample = False
 
-            train_loss = self.train(self.loaders, epoch)
-            self.save_checkpoint(epoch, id=f"train_{train_loss:.4f}")
-            val_loss = self.validate(self.loaders, epoch)
-            self.save_checkpoint(epoch, id=f"val_{val_loss:.4f}")
+            train_loss = self.train(self.loaders, epoch, new_bias)
+            # self.save_checkpoint(epoch, id=f"train_{train_loss:.4f}")
+            # val_loss = self.validate(self.loaders, epoch)
+            val_loss = 0.6
+            # self.save_checkpoint(epoch, id=f"val_{val_loss:.4f}")
 
             if val_loss <= 0.5:
                 self.save_checkpoint(epoch, id=f"target_reached_{val_loss:.2f}")
@@ -120,7 +129,7 @@ class SpeechTrainer:
 
         # Whisper preserves temporal dimension, so output lengths = input lengths
         loss = self.criterion(_log_softmax, labels, inputs_len, labels_len)
-        if (mode == 'val' and step_count % 100 == 0) or (step_count % 100 == 0):
+        if (mode == 'val' and step_count % 100 == 0) or (step_count % 100 == 0) or True:
             sample = output.transpose(0, 1).contiguous()
             prediction = torch.argmax(sample[0], dim=1)
             tqdm.write(f"Decoded Label: {lc.decode(labels[0].tolist())}")
@@ -136,7 +145,7 @@ class SpeechTrainer:
                 log_file.write("=" * 50 + "\n")
         return loss, 0
 
-    def train(self, loaders, epoch):
+    def train(self, loaders, epoch, new_bias):
         """Train method that works with LibriSpeech train/val structure"""
         self.model.train()
 
@@ -161,7 +170,7 @@ class SpeechTrainer:
             lr = f"{self.scheduler.get_last_lr()[0]:.7f}".rstrip('0')
             progress_bar.set_postfix({
                 "LR": lr,
-                "Penalty": penalty,
+                "Blank Bias": self.model.final_fc.bias.data[0].item(),
                 "Loss": loss,
                 "Avg Loss": total_loss / current_step
             })
@@ -266,7 +275,7 @@ def main():
     total_steps = len(loaders['train']) * config.H_PARAMS["TOTAL_EPOCH"]
 
     criterion = nn.CTCLoss(blank=0, reduction='mean', zero_infinity=True)
-    optimizer = optim.AdamW(model.parameters(), lr=config.H_PARAMS["BASE_LR"])
+    optimizer = optim.AdamW(model.parameters(), lr=config.H_PARAMS["BASE_LR"], weight_decay=0.0)
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=10, final_div_factor=100, pct_start=0.3, cycle_momentum=False)
     trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device, total_steps=total_steps, speech_module=speech_module)
     

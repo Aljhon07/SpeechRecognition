@@ -18,7 +18,7 @@ CHECKPOINT_DIR = OUTPUT_DIR / "checkpoints"
 UPLOAD_DIR = BASE_DIR / "uploads"
 SRC_DIR = BASE_DIR / "src"
 MODEL_DIR = BASE_DIR / 'inference' / "models"
-
+PRECOMPUTED_DIR = OUTPUT_DIR / "features"
 AUDIO_PARAMS = {
     "SAMPLE_RATE": 16000,  # Whisper standard
     "N_MELS": 80,          # Whisper standard 
@@ -35,12 +35,12 @@ LIBRISPEECH_SUBSETS = [
     # "test-other"
 ]
 H_PARAMS = {
-    "BASE_LR": 0.005,
-    "TOTAL_EPOCH":20,
+    "BASE_LR": 0.05,
+    "TOTAL_EPOCH":700,
     "VOCAB_SIZE": 5000,
     "N_FEATS": 80,
     "VERBOSE": False,
-    "BATCH_SIZE": 32
+    "BATCH_SIZE": 5
 }
 
 # Logging configuration for shape tracking

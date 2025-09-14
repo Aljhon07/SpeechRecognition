@@ -1,16 +1,8 @@
-import os
-# Fix OpenMP duplicate library issue
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-
 from torch.utils.data import Dataset, DataLoader
-from src.preprocess import WhisperLogMelSpectrogram
 import config
-import json
 import random
-import torchaudio
 import torch
-import winsound
-from tools.utils import plot_spectrogram
+import pandas as pd
 from tools import language_corpus as lc
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
@@ -22,180 +14,182 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 class SpeechDataset(Dataset):
-    def __init__(self, data, augmented=False, augmented_prob=0.5, epoch_progress=0.0):
-        self.data = data
+    def __init__(self, tsv_path, precomputed_dir, augmented=False, augmented_prob=0.5):
+        """
+        Initialize dataset with TSV file path and precomputed .pt files
+        
+        Args:
+            tsv_path: Path to TSV file with metadata
+            precomputed_dir: Directory containing precomputed .pt files
+            augmented: Whether to apply data augmentation
+            augmented_prob: Probability of applying augmentation
+        """
+        self.tsv_path = Path(tsv_path)
+        self.precomputed_dir = Path(precomputed_dir)
         self.augmented = augmented
         self.augmented_prob = augmented_prob
-        self.logmel = WhisperLogMelSpectrogram()
-        self.total_duration = sum(item['duration'] for item in data) / (60 * 60)
         self.apply_mask = nn.Sequential(
             T.TimeMasking(time_mask_param=15),
             T.FrequencyMasking(freq_mask_param=8))
         self.verbose = config.H_PARAMS["VERBOSE"]
         
+        # Load metadata only once to get length and duration
+        self.metadata_df = pd.read_csv(self.tsv_path, sep='\t').head(10)
+        self.total_duration = self.metadata_df['duration'].sum() / 3600  # Convert to hours
+        
+
     def __len__(self):
-        return len(self.data)
+        return len(self.metadata_df)
 
     def __getitem__(self, idx):
-        data = self.data[idx]
-
-        # destucture the data
-        file_name = data['file_name']
-        waveform = data['waveform']
-        sr = data['sample_rate']
-        file_name = data['file_name']
-        labels = lc.encode(data['transcription'])
+        # Get metadata from DataFrame (TSV)
+        row = self.metadata_df.iloc[idx]
+        file_name = row['file_name']
+        transcript = row['transcript']  # Get transcript from TSV
+        
+        # Load ONLY precomputed spectrograms from .pt file
+        pt_file = self.precomputed_dir / f"{file_name}.pt"
+        data = torch.load(pt_file, map_location='cpu')
+        
+        # Extract precomputed spectrograms
+        spec = data['spectrogram']  # Already (time, n_mels)
+        unpadded_spec = data['unpadded_spectrogram']
+        spec_len = unpadded_spec.shape[-1]
+        
+        # Encode transcript from TSV using SentencePiece
+        labels = lc.encode(transcript)
         labels_len = len(labels)
-
-        if sr != config.AUDIO_PARAMS["SAMPLE_RATE"]:
-            waveform = torchaudio.functional.resample(waveform, orig_freq=sr, new_freq=config.AUDIO_PARAMS["SAMPLE_RATE"])
-            
-        spec, unpadded_spec = self.logmel(waveform)
+                
         if self.verbose:
-            print(f"Dataset[{idx}] - Loaded waveform shape: {waveform.shape}, sr: {sr}")
-            print(f"Dataset[{idx}] - After logmel shape: {spec.shape}")
+            print(f"Dataset[{idx}] - Loaded precomputed data: {file_name}")
+            print(f"Dataset[{idx}] - Spec shape: {spec.shape}")
+            print(f"Dataset[{idx}] - Spec length: {spec_len}")
+            print(f"Dataset[{idx}] - Labels length: {labels_len}")
 
-        if spec.dim() == 3 and spec.shape[0] == 1:
-            spec = spec.squeeze(0).contiguous()  # Now shape is (n_mels, time_frames)
-            if self.verbose:
-                print(f"Dataset[{idx}] - After squeeze shape: {spec.shape}")
-
+        # Apply augmentation if enabled
         if self.augmented and random.random() < self.augmented_prob:
             if self.verbose:
                 print(f"Dataset[{idx}] - Applying augmentation")
-            spec = self.apply_mask(spec)
             
-        # spec should now be (n_mels, time_frames)
-        spec_len = unpadded_spec.shape[-1]  # time dimension is now at index 1
+            # For augmentation, we need (n_mels, time) format
+            spec_for_aug = spec.transpose(0, 1)  # (time, n_mels) -> (n_mels, time)
+            spec_for_aug = self.apply_mask(spec_for_aug)
+            spec = spec_for_aug.transpose(0, 1)  # Back to (time, n_mels)
+            
         if self.verbose:
-            print(f"Dataset[{idx}] - Spec length: {spec_len}")
-
-        if self.verbose:
-            print(f"Dataset[{idx}] - Labels length: {labels_len}")
-
-        # Transpose for model compatibility: (n_mels, time) -> (time, n_mels)
-        final_spec = spec.transpose(0, 1).contiguous()
-        if self.verbose:
-            print(f"Dataset[{idx}] - Final spec shape (time, n_mels): {final_spec.shape}")
-
-        if self.verbose:
+            print(f"Dataset[{idx}] - Final spec shape (time, n_mels): {spec.shape}")
             self.verbose = False  # Only log for the first item
+
+        # Convert labels to tensor
         labels = torch.tensor(labels, dtype=torch.long)
-        return final_spec, labels, torch.tensor(spec_len, dtype=torch.long), torch.tensor(labels_len, dtype=torch.long), file_name, unpadded_spec
+        
+        return spec, labels, torch.tensor(spec_len, dtype=torch.long), torch.tensor(labels_len, dtype=torch.long), file_name, unpadded_spec
     
 class SpeechModule:
-    def __init__(self, data=None):
-        self.train_data = None
-        self.dev_data = None
+    def __init__(self, use_precomputed=True):
+        self.use_precomputed = use_precomputed
         self.loaders = {}
         self.datasets = {}
         
+    def _check_precomputed_data(self):
+        """Check if any precomputed data exists"""
+        precomputed_base = Path(config.PRECOMPUTED_DIR)
+        
+        # Check if at least one split has both TSV and precomputed directory
+        found_any = False
+        for split in ['train', 'dev', 'test']:
+            tsv_path = config.OUTPUT_DIR / f"{split}.tsv"
+            split_dir = precomputed_base / split
+            
+            if tsv_path.exists() and split_dir.exists():
+                found_any = True
+                print(f"Found precomputed data for {split} split")
+                
+        return found_any
+        
     def load_librispeech_data(self, subsets=None):
-        """Load LibriSpeech data and separate into train/dev based on subset names"""
+        """Check if LibriSpeech precomputed data exists"""
         if subsets is None:
             subsets = config.LIBRISPEECH_SUBSETS
             
-        train_data = []
-        dev_data = []
-        
-        for subset in subsets:
-            print(f"Loading LibriSpeech subset: {subset}")
-            dataset = torchaudio.datasets.LIBRISPEECH(
-                root=config.LIBRISPEECH_PATH, 
-                url=subset, 
-                download=True
-            )
-            
-            subset_data = []
-            for i in range(len(dataset)):
-                waveform, sample_rate, transcript, speaker_id, chapter_id, utterance_id = dataset[i]
-                
-                # Create file identifier
-                file_name = f"{speaker_id}_{chapter_id}_{utterance_id:04d}"
-                
-                # Get audio file path (LibriSpeech uses .flac files)
-                audio_path = config.LIBRISPEECH_PATH / "LibriSpeech" / subset / str(speaker_id) / str(chapter_id) / f"{file_name}.flac"
-                
-                # Calculate duration
-                duration = waveform.shape[1] / sample_rate
-
-                if duration >= 30.0:
-                    continue  
-                
-                # make the data item tuple
-                data_item = {
-                    'file_name': file_name,
-                    'waveform': waveform,
-                    'sample_rate': sample_rate,
-                    'audio_path': str(audio_path),
-                    'transcription': transcript.lower(),  # LibriSpeech transcripts are lowercase
-                    'duration': duration,  # Add duration field
-                    'subset': subset
-                }
-                subset_data.append(data_item)
-            
-            # Separate data based on subset name
-            if 'train' in subset.lower():
-                train_data.extend(subset_data)
-                print(f"  Added {len(subset_data)} samples to training set")
-            elif 'dev' in subset.lower():
-                dev_data.extend(subset_data)
-                print(f"  Added {len(subset_data)} samples to development set")
-            # elif 'test' in subset.lower():
-                # For test sets, we can add to dev for validation or keep separate
-                train_data.extend(subset_data)
-                print(f"  Added {len(subset_data)} samples to development set (from test subset)")
-            else:
-                # Default fallback - add to train
-                train_data.extend(subset_data)
-                print(f"  Added {len(subset_data)} samples to training set (default)")
-        
-        # Set the data
-        self.train_data = train_data
-        self.dev_data = dev_data
-        
-        print(f"\nData loading complete:")
-        print(f"Training samples: {len(train_data)}")
-        print(f"Development samples: {len(dev_data)}")
-        
-        return train_data, dev_data
+        # Check if precomputed data exists
+        if self.use_precomputed and self._check_precomputed_data():
+            print("Precomputed data found and ready to use!")
+            return True
+        else:
+            print("Precomputed data not found. Please run preprocessing first:")
+            print("python -m src.preprocess")
+            raise FileNotFoundError("Precomputed data not available. Run preprocessing first.")
     
     def create_dataloader(self, batch_size=config.H_PARAMS["BATCH_SIZE"]):
-        # Ensure we have data loaded
-        if self.train_data is None or self.dev_data is None:
-            raise ValueError("No data loaded. Please call load_librispeech_data() first or provide data manually.")
-
-        train_dataset = SpeechDataset(self.train_data, augmented=True)
-        val_dataset = SpeechDataset(self.dev_data, augmented=False)
-
-        self.datasets = {
-            'train': train_dataset,
-            'val': val_dataset
+        """Create dataloaders from TSV files and precomputed data"""
+        precomputed_base = Path(config.PRECOMPUTED_DIR)
+        
+        datasets = {}
+        loaders = {}
+        
+        # Define split configurations
+        split_configs = {
+            'train': {'dir': 'test', 'augmented': True, 'shuffle': True},
+            'val': {'dir': 'test', 'augmented': False, 'shuffle': False},
+            'test': {'dir': 'test', 'augmented': False, 'shuffle': False}
         }
+        
+        # Create datasets and loaders for available splits
+        for split_name, config_dict in split_configs.items():
+            tsv_path = config.OUTPUT_DIR / f"{config_dict['dir']}.tsv"
+            if tsv_path.exists():
+                dataset = SpeechDataset(
+                    tsv_path, 
+                    precomputed_base / config_dict['dir'], 
+                    augmented=config_dict['augmented']
+                )
+                
+                # Only create dataloader if we have enough samples
+                if len(dataset) > 0:
+                    datasets[split_name] = dataset
+                    
+                    # Adjust drop_last based on dataset size
+                    drop_last = len(dataset) >= batch_size
+                    
+                    loaders[split_name] = DataLoader(
+                        dataset, 
+                        batch_size=min(batch_size, len(dataset)), 
+                        drop_last=drop_last, 
+                        shuffle=config_dict['shuffle'], 
+                        collate_fn=self.collate_fn
+                    )
+                    print(f"Created {split_name} dataloader with {len(dataset)} samples")
+                else:
+                    print(f"Skipping {split_name} - no samples found")
+            else:
+                print(f"Skipping {split_name} - TSV file not found: {tsv_path}")
 
-        self.loaders = {
-            'train': DataLoader(train_dataset, batch_size=batch_size, drop_last=True, shuffle=True, collate_fn=self.collate_fn),
-            'val': DataLoader(val_dataset, batch_size=batch_size, drop_last=True, shuffle=False, collate_fn=self.collate_fn)
-        }
-    
+        self.datasets = datasets
+        self.loaders = loaders
+        
         self.get_dataset_stats()
-        return self.loaders
+        return loaders
     
     def get_dataset_stats(self):
         """Print dataset statistics"""
-        if self.train_data and self.dev_data:
-            train_duration = sum(item['duration'] for item in self.train_data) / 3600  # hours
-            val_duration = sum(item['duration'] for item in self.dev_data) / 3600  # hours
+        print(f"\nDataset Statistics:")
+        
+        total_samples = 0
+        total_duration = 0
+        
+        for split_name, dataset in self.datasets.items():
+            duration = dataset.total_duration
+            samples = len(dataset)
+            print(f"{split_name.capitalize()} samples: {samples} ({duration:.2f} hours)")
+            total_samples += samples
+            total_duration += duration
             
-            print(f"\nDataset Statistics:")
-            print(f"Training samples: {len(self.train_data)} ({train_duration:.2f} hours)")
-            print(f"Validation samples: {len(self.dev_data)} ({val_duration:.2f} hours)")
-            print(f"Total samples: {len(self.train_data) + len(self.dev_data)} ({train_duration + val_duration:.2f} hours)")
+        print(f"Total samples: {total_samples} ({total_duration:.2f} hours)")
     
     def load_and_create_dataloaders(self, subsets=None, batch_size=config.H_PARAMS["BATCH_SIZE"]):
+        """Check data availability and create dataloaders"""
         self.load_librispeech_data(subsets)
-        
-        # Create dataloaders
         return self.create_dataloader(batch_size)
 
     def collate_fn(self, batch):
@@ -213,23 +207,35 @@ class SpeechModule:
 
 
 if __name__ == "__main__":
-    # Simple test to verify dataset loading and dataloader functionality
-    speech_module = SpeechModule()
-    loaders = speech_module.load_and_create_dataloaders(
-        subsets=config.LIBRISPEECH_SUBSETS,  # Uses config settings
-        batch_size=config.H_PARAMS["BATCH_SIZE"]
-    )
-    
-    # Test the current dataloader
-    if 'train' in loaders and len(speech_module.train_data) > 0:
-        for batch in loaders['train']:
-            specs, labels, spec_lens, label_lens, file_names, unpadded_specs = batch
-            print(f"Train batch - Specs: {specs.shape}, Labels: {labels.shape}")
-            break  # Just test one batch
-     
-    if 'val' in loaders and len(speech_module.dev_data) > 0:
-        for batch in loaders['val']:
-            specs, labels, spec_lens, label_lens, file_names, unpadded_specs = batch
-            print(f"Val batch - Specs: {specs.shape}, Labels: {labels.shape}")
-            print(f"Sample file names: {file_names[:3]}")
-            break
+    # Test the refactored dataset loading
+    try:
+        speech_module = SpeechModule(use_precomputed=True)
+        
+        # Load data splits
+        data_splits = speech_module.load_librispeech_data(subsets=config.LIBRISPEECH_SUBSETS)
+        
+        # Create dataloaders
+        loaders = speech_module.create_dataloader(batch_size=config.H_PARAMS["BATCH_SIZE"])
+        
+        print("Successfully created dataloaders with precomputed data!")
+        
+        # Test the dataloaders
+        for split_name, dataloader in loaders.items():
+            if len(dataloader) > 0:
+                for batch in dataloader:
+                    specs, labels, spec_lens, label_lens, file_names, unpadded_specs = batch
+                    print(f"{split_name.capitalize()} batch - Specs: {specs.shape}, Labels: {labels.shape}")
+                    print(f"Sample file names: {file_names[:min(3, len(file_names))]}")
+
+                    random_idx = random.randint(0, specs.size(0) - 1)
+                    print(f"Random sample from batch - Spec shape: {specs[random_idx].shape}, Label length: {label_lens[random_idx]}")
+                    print(f"Unpadded spec shape: {unpadded_specs[random_idx].shape}")
+                    print(f"Label: {labels[random_idx]}")
+                    print(f"File name: {file_names[random_idx]}")
+
+                    break  # Just test one batch per split
+                    
+    except Exception as e:
+        print(f"Error: {e}")
+        print("\nTo fix this, run preprocessing first:")
+        print("python -m src.preprocess")
