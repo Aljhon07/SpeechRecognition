@@ -78,7 +78,7 @@ class Preprocessor:
                 all_transcriptions.append(transcript)
                
                 # Save precomputed features
-                split = 'train' if 'train' in subset else 'dev' if 'dev' in subset else 'test'
+                split = 'train' if 'train' in subset else 'dev' if 'dev' in subset else 'train'
 
                 data_entries[split].append({
                     "file_name": file_name,
@@ -172,6 +172,5 @@ class Preprocessor:
 
 if __name__ == "__main__":
     preprocessor = Preprocessor(sr=16000)
-    
     # Multiple datasets example:
     preprocessor.preprocess( vocab_size=5000)

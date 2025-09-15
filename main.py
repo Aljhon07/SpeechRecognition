@@ -11,7 +11,8 @@ if __name__ == '__main__':
     # file = config.COMMON_VOICE_PATH = config.COMMON_VOICE_PATH / 'clips' / 'common_voice_en_20273690.mp3'
     # print(file.exists())
     # remove_audio_files(config.COMMON_VOICE_PATH / 'invalidated.tsv')
-    # preprocess()
+    # preprocessor = Preprocessor(sr=16000)
+    # preprocessor.preprocess()
     train.main()
     # print(os.path.exists(config.COMMON_VOICE_PATH / 'clips' / 'common_voice_en_16759015.mp3'))
     # sanity_check()

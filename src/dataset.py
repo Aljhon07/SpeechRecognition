@@ -67,7 +67,7 @@ class SpeechDataset(Dataset):
             print(f"Dataset[{idx}] - Labels length: {labels_len}")
 
         # Apply augmentation if enabled
-        if self.augmented and random.random() < self.augmented_prob:
+        if self.augmented and random.random() < self.augmented_prob and False:
             if self.verbose:
                 print(f"Dataset[{idx}] - Applying augmentation")
             
@@ -130,9 +130,9 @@ class SpeechModule:
         
         # Define split configurations
         split_configs = {
-            'train': {'dir': 'test', 'augmented': True, 'shuffle': True},
-            'val': {'dir': 'test', 'augmented': False, 'shuffle': False},
-            'test': {'dir': 'test', 'augmented': False, 'shuffle': False}
+            'train': {'dir': 'train', 'augmented': True, 'shuffle': True},
+            'dev': {'dir': 'dev', 'augmented': False, 'shuffle': False},
+            'test': {'dir': 'train', 'augmented': False, 'shuffle': False}
         }
         
         # Create datasets and loaders for available splits

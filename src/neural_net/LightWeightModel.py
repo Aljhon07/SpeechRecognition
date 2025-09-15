@@ -11,7 +11,7 @@ verbose = config.H_PARAMS['VERBOSE']
 
 class LightWeightModel(nn.Module):
 
-    def __init__(self, hidden_size=512, num_classes=config.H_PARAMS['VOCAB_SIZE'], n_feats=80, num_layers=3, dropout=0.2):
+    def __init__(self, hidden_size=512, num_classes=config.H_PARAMS['VOCAB_SIZE'], n_feats=80, num_layers=3, dropout=0.0):
         super(LightWeightModel, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
@@ -37,7 +37,7 @@ class LightWeightModel(nn.Module):
         self.layer_norm2 = nn.LayerNorm(hidden_size * 2)
         self.dropout2 = nn.Dropout(dropout)
         self.final_fc = nn.Linear(hidden_size * 2, num_classes)
-        # self.final_fc.bias.data[0] = -0.0
+        # self.final_fc.bias.data[0] = -0.5
 
     def _init_hidden(self, batch_size, device):
         n, hs = self.num_layers, self.hidden_size
@@ -83,5 +83,7 @@ class LightWeightModel(nn.Module):
 
         final_output = self.final_fc(x)
 
+        if verbose:
+            print(f"Final output shape (before log_softmax): {final_output.shape}")
         return final_output, hidden  # (time, batch, n_class)
 

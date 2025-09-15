@@ -34,11 +34,11 @@ class SpeechTrainer:
         self.total_steps = total_steps
         self.step_losses = {
             'train': [],
-            'val': []
+            'dev': []
         }
         self.epoch_losses = {
             'train': [],
-            'val': []
+            'dev': []
         }
         if not os.path.exists(os.path.dirname(self.log_file)):
             os.makedirs(os.path.dirname(self.log_file))
@@ -59,34 +59,38 @@ class SpeechTrainer:
             start_epoch = self.load_checkpoint(config.CHECKPOINT_DIR / checkpoint_name)
             print(f"Resuming training from epoch {start_epoch}")
 
-        initial_bias =  0.0
+        initial_bias = 0.0
         final_bias = 0.0
-        decay_epochs = 3
+        decay_epochs = 10
         new_bias = self.model.final_fc.bias.data[0]
         for epoch in range(start_epoch, num_epochs):
             epoch += 1
             
-            if epoch <= decay_epochs:
-                new_bias = initial_bias + (final_bias - initial_bias) * (epoch - 1) / (decay_epochs - 1)
-                self.model.final_fc.bias.data[0] = new_bias
+            # if epoch <= decay_epochs:
+            #     new_bias = initial_bias + (final_bias - initial_bias) * (epoch - 1) / (decay_epochs - 1)
+            #     self.model.final_fc.bias.data[0] = new_bias
                 
             # Use simple train/val split from LibriSpeech
             if self.check_sample:
                 # audio_sanity_check(self.loaders['train'], self.speech_module, self.device)
-                # audio_sanity_check(self.loaders['val'], self.speech_module, self.device)
+                # audio_sanity_check(self.loaders['dev'], self.speech_module, self.device)
                 self.check_sample = False
 
             train_loss = self.train(self.loaders, epoch, new_bias)
             # self.save_checkpoint(epoch, id=f"train_{train_loss:.4f}")
+
             # val_loss = self.validate(self.loaders, epoch)
-            val_loss = 0.6
             # self.save_checkpoint(epoch, id=f"val_{val_loss:.4f}")
+            if not config.OVERFIT_TEST:
+                print(f"Saving checkpoint for epoch {epoch}")
+            else:
+                val_loss = 0.6
 
             if val_loss <= 0.5:
                 self.save_checkpoint(epoch, id=f"target_reached_{val_loss:.2f}")
 
             self.epoch_losses['train'].append(train_loss)
-            self.epoch_losses['val'].append(val_loss)
+            self.epoch_losses['dev'].append(val_loss)
 
             tqdm.write(f"Epoch {epoch}/{num_epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
 
@@ -96,7 +100,7 @@ class SpeechTrainer:
         # Input Shape: (batch_size, n_feats, seq_len)
         # Unpack the 6 elements from our new dataset (including unpadded_specs)
         inputs, labels, inputs_len, labels_len, file_name, unpadded_specs = batch
-        log_debug = self.overall_step_count % 100 == 0 or self.overall_step_count == 1
+        log_debug = self.overall_step_count % 100 == 0 or config.OVERFIT_TEST
 
         inputs_len = inputs_len // 2
         inputs, labels = inputs.to(self.device), labels.to(self.device)
@@ -107,7 +111,9 @@ class SpeechTrainer:
 
         if log_debug:
             logger.debug(f"Step {step_count} ({mode}) - Before model inputs shape: {inputs.shape}")
+
         output, _ = self.model(inputs, inputs_len, hidden)
+
         if log_debug:
             logger.debug(f"Step {step_count} ({mode}) - Model output shape: {output.shape}")
 
@@ -116,24 +122,25 @@ class SpeechTrainer:
             tqdm.write(f"{'=' * 10} Debug Info {'=' * 10}")
             tqdm.write(f"Step {step_count} ({mode}) - Raw inputs shape: {inputs.shape}")
             tqdm.write(f"Step {step_count} ({mode}) - Labels shape: {labels.shape}")
-            tqdm.write(f"Step {step_count} ({mode}) - Input lengths: {inputs_len.shape}")
-            tqdm.write(f"Step {step_count} ({mode}) - Label lengths: {labels_len.shape}")
+            tqdm.write(f"Step {step_count} ({mode}) - Input lengths: {inputs_len}")
+            tqdm.write(f"Step {step_count} ({mode}) - Label lengths: {labels_len}")
             # nputs are (batch, n_mels, time), output is (time, batch, n_class)
             tqdm.write(f"Step 1 shape verification - Input: {inputs.shape}, Output: {output.shape}")
             tqdm.write(f"Step 1 time dimension check - Output time: {output.shape[0]}, Input time: {inputs.shape[2]}")
 
-        # if mode == 'val':
+        # if mode == 'dev':
         #     output = output / temperature
 
         _log_softmax = F.log_softmax(output, dim=2)
-
         # Whisper preserves temporal dimension, so output lengths = input lengths
         loss = self.criterion(_log_softmax, labels, inputs_len, labels_len)
-        if (mode == 'val' and step_count % 100 == 0) or (step_count % 100 == 0) or True:
+        if (mode == 'dev' and step_count % 100 == 0) or (step_count % 100 == 0) or config.OVERFIT_TEST:
             sample = output.transpose(0, 1).contiguous()
+            print(sample.shape)
+            print(sample[0].shape)
             prediction = torch.argmax(sample[0], dim=1)
             tqdm.write(f"Decoded Label: {lc.decode(labels[0].tolist())}")
-            tqdm.write(f"T1: {sample[0, 0, :10].tolist()}")
+            # tqdm.write(f"T1: {sample[0, 0, :10].tolist()}")
             # with open(self.log_file, 'a') as f:
             #     f.write(f"Step {step_count} | Loss: {loss.item():.4f}\nPrediction: {prediction.tolist()} | Labels: {labels[0].tolist()}\n")
             tqdm.write(f"Prediction: {ctc_decoder(prediction.tolist())} \nLabels: {labels[0].tolist()} ")
@@ -183,21 +190,12 @@ class SpeechTrainer:
         progress_bar.close()
         return total_loss / total_step
 
-    def get_blank_token_penalty(self, current_step):
-        max_penalty = 0.5
-        max_steps = 0.4 * self.total_steps
-        if current_step < max_steps:
-            return 0.0
-        else:
-            return min(max_penalty, (current_step - max_steps) / (self.total_steps - max_steps) * max_penalty)
-
-        
     def validate(self, loaders, epoch):
         """Validation method that works with LibriSpeech train/val structure"""
         self.model.eval()
         
         # Get the val loader from the loaders dict
-        val_loader = loaders['val']
+        val_loader = loaders['dev']
         total_loss = 0
         total_step = len(val_loader)
         current_step = 0
@@ -207,9 +205,9 @@ class SpeechTrainer:
         with torch.no_grad():
             for idx, batch in enumerate(val_loader):
                 current_step += 1
-                loss, _ = self.step(mode='val', batch=batch, step_count=current_step)
+                loss, _ = self.step(mode='dev', batch=batch, step_count=current_step)
                 total_loss += loss.item()
-                self.step_losses['val'].append(f"{loss.item():.4f}")
+                self.step_losses['dev'].append(f"{loss.item():.4f}")
                 progress_bar.set_postfix({
                     "Batch": f"{idx+1}/{len(val_loader)}",
                     "Loss": loss.item(),
@@ -252,8 +250,8 @@ class SpeechTrainer:
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        self.epoch_losses = checkpoint.get('epoch_losses', {'train': [], 'val': []})
-        self.step_losses = checkpoint.get('step_losses', {'train': [], 'val': []})
+        self.epoch_losses = checkpoint.get('epoch_losses', {'train': [], 'dev': []})
+        self.step_losses = checkpoint.get('step_losses', {'train': [], 'dev': []})
         start_epoch = checkpoint['epoch'] 
         self.overall_step_count = checkpoint.get('overall_step_count', 0)
         print(f"Loaded checkpoint from epoch {checkpoint['epoch']}")
@@ -277,6 +275,8 @@ def main():
     criterion = nn.CTCLoss(blank=0, reduction='mean', zero_infinity=True)
     optimizer = optim.AdamW(model.parameters(), lr=config.H_PARAMS["BASE_LR"], weight_decay=0.0)
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=10, final_div_factor=100, pct_start=0.3, cycle_momentum=False)
+    # if config.OVERFIT_TEST:
+    #     scheduler = optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=total_steps)
     trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device, total_steps=total_steps, speech_module=speech_module)
     
     trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=False, sort=True, checkpoint_name="checkpoint_epoch_5_train_48.9481.pth")

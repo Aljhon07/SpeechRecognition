@@ -10,6 +10,8 @@ Concise sanity checking including:
 
 # Fix OpenMP conflict
 import os
+
+from src.preprocess import WhisperLogMelSpectrogram
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 import torch
@@ -30,7 +32,7 @@ class DatasetSanityChecker:
         self.batch_size = batch_size or config.H_PARAMS["BATCH_SIZE"]
         self.speech_module = None
         self.loaders = None
-        
+        self.logmel = WhisperLogMelSpectrogram()
     def setup_dataloader(self):
         try:
             self.speech_module = SpeechModule(use_precomputed=True)
@@ -48,7 +50,7 @@ class DatasetSanityChecker:
         # Basic info
         file_name = file_names[idx]
         # Fix: Use actual label length to trim padding
-        actual_labels = labels[idx][:label_lens[idx]].tolist()
+        actual_labels = labels[idx].tolist()
         transcription = lc.decode(actual_labels)
         
         print(f"\n🔍 SAMPLE: {file_name}")
@@ -59,11 +61,12 @@ class DatasetSanityChecker:
         
         # 2. Compare spectrograms
         print("🎨 Showing spectrogram comparison...")
-        plot_spectrogram(unpadded_specs[idx], specs[idx])
         
         # 3. Play audio using winsound.PlaySound with waveform
-        self.play_audio_from_waveform(file_name, transcription)
-        
+        spectrogram = self.play_audio_from_waveform(file_name, transcription)
+        print(f"Spectrogram shape from waveform: {spectrogram.shape}")
+        print(f"Spectrogram shape from dataloader: {specs[idx].shape}")
+        plot_spectrogram(spectrogram, unpadded_specs[idx])
         # 4. Print details
         print(f"📐 Spec lengths: {spec_lens[idx].item()}, Label length: {label_lens[idx].item()}")
         print(f"📊 Stats - Min: {specs[idx].min():.3f}, Max: {specs[idx].max():.3f}, Mean: {specs[idx].mean():.3f}")
@@ -126,7 +129,8 @@ class DatasetSanityChecker:
                 # Cleanup
                 os.unlink(temp_path)
                 print("✅ Audio played successfully!")
-                
+                spec, _ = self.logmel(waveform)
+                return _.squeeze(0)  # (Time, Mel)
             except Exception as e:
                 print(f"❌ Playback error: {e}")
                 try:
