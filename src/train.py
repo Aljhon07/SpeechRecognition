@@ -77,10 +77,10 @@ class SpeechTrainer:
                 self.check_sample = False
 
             train_loss = self.train(self.loaders, epoch, new_bias)
-            # self.save_checkpoint(epoch, id=f"train_{train_loss:.4f}")
+            self.save_checkpoint(epoch, id=f"train_{train_loss:.4f}")
 
-            # val_loss = self.validate(self.loaders, epoch)
-            # self.save_checkpoint(epoch, id=f"val_{val_loss:.4f}")
+            val_loss = self.validate(self.loaders, epoch)
+            self.save_checkpoint(epoch, id=f"val_{val_loss:.4f}")
             if not config.OVERFIT_TEST:
                 print(f"Saving checkpoint for epoch {epoch}")
             else:
@@ -273,8 +273,8 @@ def main():
     total_steps = len(loaders['train']) * config.H_PARAMS["TOTAL_EPOCH"]
 
     criterion = nn.CTCLoss(blank=0, reduction='mean', zero_infinity=True)
-    optimizer = optim.AdamW(model.parameters(), lr=config.H_PARAMS["BASE_LR"], weight_decay=0.0)
-    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=10, final_div_factor=100, pct_start=0.3, cycle_momentum=False)
+    optimizer = optim.AdamW(model.parameters(), lr=config.H_PARAMS["BASE_LR"])
+    scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=10, final_div_factor=1000, pct_start=0.3, cycle_momentum=False)
     # if config.OVERFIT_TEST:
     #     scheduler = optim.lr_scheduler.ConstantLR(optimizer, factor=1.0, total_iters=total_steps)
     trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device, total_steps=total_steps, speech_module=speech_module)

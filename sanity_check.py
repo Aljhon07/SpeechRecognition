@@ -89,7 +89,8 @@ class DatasetSanityChecker:
         
         # Find original audio file to get waveform
         audio_paths = [
-            config.LIBRISPEECH_PATH / "LibriSpeech" / "test-clean",
+            config.LIBRISPEECH_PATH / "LibriSpeech" / "train-clean-100",
+
         ]
         
         waveform = None
@@ -97,14 +98,20 @@ class DatasetSanityChecker:
         
         # Look for audio file
         for base_path in audio_paths:
-            if not base_path.exists():
-                continue
+            
                 
             parts = file_name.split('-')
             if len(parts) >= 3:
                 speaker_id, chapter_id = parts[0], parts[1]
                 audio_file = base_path / speaker_id / chapter_id / f"{file_name}.flac"
+
+                if not audio_file.exists():
+                    print("aaaaa")
+                    base_path = config.LIBRISPEECH_PATH / "LibriSpeech" / "train-clean-360",
                 
+                if not audio_file.exists():
+                    waveform, sample_rate = torchaudio.load(str(audio_file))
+                    
                 if audio_file.exists():
                     try:
                         waveform, sample_rate = torchaudio.load(str(audio_file))
@@ -112,7 +119,7 @@ class DatasetSanityChecker:
                         break
                     except Exception as e:
                         print(f"❌ Load error: {e}")
-        
+            
         if waveform is not None:
             # Create temporary WAV file from waveform
             try:

@@ -73,7 +73,7 @@ def inference(file_path):
 
         pred = decoded_pred
 
-        if os.getenv("POST_PROCESS_WITH_AI", "false").lower() == "false":
+        if os.getenv("POST_PROCESS_WITH_AI", "true").lower() == "false":
             try:
                 response = client.models.generate_content(
                     model="gemini-2.5-flash",

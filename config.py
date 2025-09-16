@@ -24,23 +24,23 @@ AUDIO_PARAMS = {
     "N_MELS": 80,          # Whisper standard 
     "HOP_LENGTH": 160      # Whisper standard (10ms hop at 16kHz)
 }
-OVERFIT_TEST = True
+OVERFIT_TEST = False
 LIBRISPEECH_SUBSETS = [
-    # "train-clean-100", 
-    # "train-clean-360", 
+    "train-clean-100", 
+    "train-clean-360", 
     # "train-other-500", 
-    "test-clean", 
-    "test-other",
+    # "test-clean", 
+    # "test-other",
     "dev-clean", 
     # "dev-other", 
 ]
 H_PARAMS = {
-    "BASE_LR": 0.01,
-    "TOTAL_EPOCH":200,
+    "BASE_LR": 0.005,
+    "TOTAL_EPOCH":20,
     "VOCAB_SIZE": 5000,
     "N_FEATS": 80,
     "VERBOSE": False,
-    "BATCH_SIZE": 5
+    "BATCH_SIZE": 32
 }
 
 # Logging configuration for shape tracking

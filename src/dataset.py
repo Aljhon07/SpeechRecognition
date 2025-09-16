@@ -34,7 +34,7 @@ class SpeechDataset(Dataset):
         self.verbose = config.H_PARAMS["VERBOSE"]
         
         # Load metadata only once to get length and duration
-        self.metadata_df = pd.read_csv(self.tsv_path, sep='\t').head(10)
+        self.metadata_df = pd.read_csv(self.tsv_path, sep='\t')
         self.total_duration = self.metadata_df['duration'].sum() / 3600  # Convert to hours
         
 
@@ -67,7 +67,7 @@ class SpeechDataset(Dataset):
             print(f"Dataset[{idx}] - Labels length: {labels_len}")
 
         # Apply augmentation if enabled
-        if self.augmented and random.random() < self.augmented_prob and False:
+        if self.augmented and random.random() < self.augmented_prob:
             if self.verbose:
                 print(f"Dataset[{idx}] - Applying augmentation")
             
@@ -132,7 +132,7 @@ class SpeechModule:
         split_configs = {
             'train': {'dir': 'train', 'augmented': True, 'shuffle': True},
             'dev': {'dir': 'dev', 'augmented': False, 'shuffle': False},
-            'test': {'dir': 'train', 'augmented': False, 'shuffle': False}
+            'test': {'dir': 'test', 'augmented': False, 'shuffle': False}
         }
         
         # Create datasets and loaders for available splits
