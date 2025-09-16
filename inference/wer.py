@@ -5,58 +5,52 @@ import pandas as pd
 import config
 from tools.utils import normalize_text, rms_normalize
 import torchaudio
+import config
+from tqdm import tqdm
 
-
-test_tsv = config.BASE_DIR / 'inference' / 'test' / 'en' / 'validated.tsv'
-test_clips = config.BASE_DIR / 'inference' / 'test' / 'en' / 'clips' 
-log_file = config.BASE_DIR / 'inference' / 'test' / 'en' / 'wer.log'
-if not os.path.exists(log_file):
-    with open(log_file, 'w') as f:
-        f.write("")
-    
-def evaluate_model(tsv_file):
+def evaluate_model():
     error_rate = 0.0
     step_count = 0
-
-    for idx, row in pd.read_csv(test_tsv, sep='\t').iterrows():
-        audio_file = test_clips / row['path']
-        reference = row['sentence']
+    test_tsv =  config.OUTPUT_DIR / "test.tsv"
+    precomputed_dir = config.PRECOMPUTED_DIR
+    df = pd.read_csv(test_tsv, sep='\t').head(150)
+    progress_bar = tqdm(df.iterrows(), total=len(df), desc="Evaluating WER")
+    for idx, row in progress_bar:
+        audio_file = row['audio_path']
+        reference = row['transcript']
         reference = normalize_text(reference)
 
-
         if not os.path.exists(audio_file):
-            continue
-
-        wav, sr = torchaudio.load(audio_file)
-        rms = rms_normalize(wav)
-        if rms is None:
+            tqdm.write(f"Audio file {audio_file} does not exist. Skipping.")
             continue
 
         hypothesis = inference(audio_file)
-        hypothesis = normalize_text(hypothesis)
+        hypothesis = normalize_text(hypothesis[0])
+
+        # tqdm.write(f"Reference: {reference}\nHypothesis: {hypothesis}")
         if hypothesis == "" or hypothesis == None or reference == "" or reference == None:
-            print(f"Reference: {reference} | Hypothesis: {hypothesis} | WER: 1.0")
+            tqdm.write(f"Reference: {reference} | Hypothesis: {hypothesis} | WER: 1.0")
             continue
-        if jiwer is not None:
-            score = jiwer.wer(reference, hypothesis)
-        else:
-            score = 0.0  # Default when jiwer is not available
-        if score > 1:
-            continue
+        score = jiwer.wer(reference, hypothesis)
+        log_file = config.MODEL_DIR / "wer_log.txt"
 
         with open(log_file, 'a') as f:
             f.write(f"Reference: {reference}\nPrediction: {hypothesis}\nScore: {100 - score * 100:.2f}\n\n")
-        print(f"File Name: {audio_file} Reference: {reference} | Hypothesis: {hypothesis} | WER: {score}")
+
+        progress_bar.set_postfix({
+            "WER": f"{score:.3f}",
+            "Avg WER": f"{(error_rate + score) / (step_count + 1):.3f}" if step_count > 0 else f"{score:.3f}"
+        })
         error_rate += score
         step_count += 1
         
-        if step_count >= 1000:
-            print(f"Processed {step_count} samples, current WER: {error_rate / step_count}")
-            break
+    if step_count == 0:
+        print("No valid samples were evaluated. Please check your data and inference outputs.")
+        return
 
     error_rate /= step_count
 
     print(f"Average WER ({step_count} samples): {error_rate}")
 
 if __name__ == "__main__":
-    evaluate_model(test_tsv)
+    evaluate_model()

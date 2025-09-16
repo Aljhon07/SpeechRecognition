@@ -15,5 +15,5 @@ data/
 output/
 history/
 librispeech/
-
+models/
 !requirements.txt
