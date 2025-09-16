@@ -15,7 +15,7 @@ def to_wav(input_file, output_file):
         command = [
             'ffmpeg',
             '-i', input_file,
-            '-acodec', 'pcm_s16le',  # WAV format, 16-bit PCM
+            '-acodec', 'flac',  # FLAC format
             '-ac', '1',              # Mono audio
             '-ar', '16000',           # 16kHz sample rate
             output_file
