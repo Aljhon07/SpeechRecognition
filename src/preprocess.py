@@ -44,6 +44,7 @@ class Preprocessor:
             'test': os.path.join(config.PRECOMPUTED_DIR, 'test'),
         }
        
+        os.makedirs(self.librispeech_path, exist_ok=True)
         for key in self.precomputed_dir:
             os.makedirs(self.precomputed_dir[key], exist_ok=True)
             tsv_path = os.path.join(self.output_dir, f"{key}.tsv")
