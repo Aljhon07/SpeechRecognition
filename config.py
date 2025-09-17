@@ -24,8 +24,8 @@ AUDIO_PARAMS = {
 }
 
 H_PARAMS = {
-    "BASE_LR": 0.005,
-    "TOTAL_EPOCH":20,
+    "BASE_LR": 0.001,
+    "TOTAL_EPOCH":10,
     "VOCAB_SIZE": 5000,
     "N_FEATS": 80,
     "VERBOSE": False,

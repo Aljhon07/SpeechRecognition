@@ -53,15 +53,22 @@ class SpeechTrainer:
 
     def start(self, num_epochs=15, resume=False, sort=False, checkpoint_name=None):
         start_epoch = 0
+        decay_until = 3
+        initial_bias = -2.0
+       
         if resume:
             if checkpoint_name is None:
                 raise ValueError("Checkpoint name must be provided for resuming training.")
             start_epoch = self.load_checkpoint(config.CHECKPOINT_DIR / checkpoint_name)
-            input("Press any key to resume...")
 
         for epoch in range(start_epoch, num_epochs):
             epoch += 1
-            
+            if epoch < decay_until:
+                bias_value = initial_bias + (0.0 - initial_bias) * (epoch / decay_until)
+
+                with torch.no_grad():
+                    self.model.final_fc.bias.data[0] = bias_value
+
             buckets = list(self.loaders.keys())
             # random.shuffle(buckets)
 
@@ -79,7 +86,7 @@ class SpeechTrainer:
                     self.sanity_check(self.loaders[random_bucket]['val'])
                     self.check_sample = False
 
-            train_loss = self.train(train_loaders, epoch)
+            train_loss = self.train(train_loaders, epoch, 0)
             self.save_checkpoint(epoch, id=f"train_{train_loss:.4f}")
             val_loss = self.validate(val_loaders, epoch)
             self.save_checkpoint(epoch, id=f"val_{val_loss:.4f}")
@@ -152,7 +159,7 @@ class SpeechTrainer:
                 log_file.write("=" * 50 + "\n")
         return loss, 0
 
-    def train(self, loaders, epoch):
+    def train(self, loaders, epoch, bias_value):
         self.model.train()
 
         total_step = sum([len(loader) for key, loader in loaders])
@@ -176,7 +183,7 @@ class SpeechTrainer:
                 loader_progress = f"{loader_idx + 1}/{len(loaders)}"
                 progress_bar.set_postfix({
                     "LR": lr,
-                    "Penalty": penalty,
+                    "Blank Bias": bias_value,
                     "Key": key,
                     "Loader": loader_progress,
                     "Loss": loss,
@@ -184,8 +191,10 @@ class SpeechTrainer:
                 })
                 progress_bar.update(1)
 
-                # if current_step % 100 == 0:
-                #     self.print_grad_stats(self.model)
+                # Save checkpoint at 25%, 50%, and 75% of the training process
+                # if current_step % (total_step // 4) == 0 or current_step % (total_step // 2) == 0 or current_step % (3 * total_step // 4) == 0:
+                #     checkpoint_id = f"epoch_{epoch}_step_{current_step}"
+                #     self.save_checkpoint(epoch, id=checkpoint_id)
 
                 self.optimizer.step()
                 self.scheduler.step()
@@ -321,7 +330,7 @@ def main():
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer, max_lr=config.H_PARAMS["BASE_LR"], total_steps=total_steps, div_factor=10, final_div_factor=100, pct_start=0.3, cycle_momentum=False)
     trainer = SpeechTrainer(model=model, loaders=loaders, criterion=criterion, optimizer=optimizer, scheduler=scheduler, device=device, total_steps=total_steps, speech_module=speech_module)
     
-    trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=False, sort=True, checkpoint_name="checkpoint_epoch_5_train_48.9481.pth")
+    trainer.start(num_epochs=config.H_PARAMS["TOTAL_EPOCH"], resume=True, sort=True, checkpoint_name="checkpoint_epoch_1_train_2.6188.pth")
     
 if __name__ == "__main__":
     main()
