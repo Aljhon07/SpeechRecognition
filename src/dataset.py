@@ -103,6 +103,17 @@ class SpeechModule:
         # Load train and dev data separately
         self.train_data = self.bucket.load_buckets('train')
         self.dev_data = self.bucket.load_buckets('dev')
+        
+        # Reduce dataset size by 40%
+        def reduce_size(data, percentage=0.6):
+            reduced_data = {}
+            for key, items in data.items():
+                sample_size = int(len(items) * percentage)
+                reduced_data[key] = random.sample(items, sample_size)
+            return reduced_data
+
+        self.train_data = reduce_size(self.train_data)
+        self.dev_data = reduce_size(self.dev_data)
     
     def create_dataloader(self, batch_size=config.H_PARAMS["BATCH_SIZE"]):
         if self.train_data is None or self.dev_data is None:
@@ -143,7 +154,7 @@ class SpeechModule:
                 'val': DataLoader(val_dataset, batch_size=batch_size, drop_last=True, shuffle=False, collate_fn=self.collate_fn)
             }
         
-        self.get_dataset_stats()
+        self.get_dataset_stats() 
         return self.loaders
 
     def collate_fn(self, batch):
@@ -245,4 +256,3 @@ if __name__ == '__main__':
 
 
 
-        
