@@ -33,10 +33,11 @@ def transcibe():
         audio_file = audio.to_wav(save_path, save_path.replace('.m4a', '.wav'))        
         os.remove(save_path)
 
-        transcript = inference(audio_file)
+        transcript = inference(audio_file, use_post_processing=True)
         print(f"Transcription result: {transcript}")
 
         
+        print(f"Testing transcript type: {type(transcript)}, {transcript}")
         return jsonify({'transcript': transcript}), 200
 
     except Exception as e:

@@ -7,7 +7,11 @@ from torchaudio.datasets import LIBRISPEECH
 # Get the absolute path to the current config file's directory
 BASE_DIR = Path(__file__).parent.resolve()
 LANGUAGE = "en"
-GENAI_API_KEY = os.getenv("GENAI_API_KEY", "AIzaSyCy9YBM9s8K3jTnk4jvs7jMVz8ln5CJnZM")
+# GENAI_API_KEY = os.getenv("GENAI_API_KEY", "AIzaSyCy9YBM9s8K3jTnk4jvs7jMVz8ln5CJnZM")
+GENAI_API_KEY = os.getenv("GENAI_API_KEY", "AIzaSyCHKiIJVdkKArOlEGg22c8GbgXzN0jUaCI")
+
+
+
 
 LIBRISPEECH_PATH = BASE_DIR / "librispeech"
 COMMON_VOICE_PATH = BASE_DIR / "commonvoice" / LANGUAGE
@@ -26,12 +30,12 @@ AUDIO_PARAMS = {
 }
 OVERFIT_TEST = False
 LIBRISPEECH_SUBSETS = [
-    "train-clean-100", 
-    "train-clean-360", 
+    # "train-clean-100", 
+    # "train-clean-360", 
     # "train-other-500", 
-    # "test-clean", 
+    "test-clean", 
     # "test-other",
-    "dev-clean", 
+    # "dev-clean", 
     # "dev-other", 
 ]
 H_PARAMS = {

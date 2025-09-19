@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from inference.models.librispeechv1.LightWeightModel import LightWeightModel as Model
+from inference.models.librispeechv2.LightWeightModel import LightWeightModel as Model
 from src.preprocess import WhisperLogMelSpectrogram
 import os
 from tools import audio, utils, language_corpus as lc
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 client = genai.Client(api_key=config.GENAI_API_KEY)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = Model()
-LOCAL_MODEL_PATH = config.MODEL_DIR / 'librispeechv1'
-checkpoint_path = LOCAL_MODEL_PATH / 'checkpoint_epoch_2_train_0.6479.pth'
+LOCAL_MODEL_PATH = config.MODEL_DIR / 'librispeechv2'
+checkpoint_path = LOCAL_MODEL_PATH / 'checkpoint_epoch_2_val_0.7688.pth'
 
 # Load checkpoint once
 checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -28,12 +28,12 @@ model.to(device)
 # Use WhisperLogMelSpectrogram for consistent preprocessing
 log_mel = WhisperLogMelSpectrogram()
 
-def inference(file_path):
+def inference(file_path, use_post_processing=False):
     # print(f"Using Model: {checkpoint_path}")
     # print(f"Loading audio file: {file_path}")
 
     # Play the audio file for preview
-    utils.play_sound(file_path)
+    # utils.play_sound(file_path)
 
     id = uuid.uuid4().hex
     converted_file = audio.to_wav(file_path,  config.UPLOAD_DIR / f"{id}.flac")
@@ -77,7 +77,7 @@ def inference(file_path):
 
         pred = decoded_pred
 
-        if os.getenv("POST_PROCESS_WITH_AI", "true").lower() == "false":
+        if os.getenv("POST_PROCESS_WITH_AI", str(use_post_processing)).lower() == "true":
             try:
                 response = client.models.generate_content(
                     model="gemini-2.5-flash",
@@ -90,7 +90,7 @@ def inference(file_path):
                 print(f"Error during AI enhancement: {e}")
                 pred = decoded_pred
 
-        return pred
+        return [pred]
 
 if __name__ == '__main__':
     # path = config.COMMON_VOICE_PATH / 'clips' / 'common_voice_en_16759015.mp3'

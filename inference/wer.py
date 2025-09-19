@@ -24,8 +24,8 @@ def evaluate_model():
             tqdm.write(f"Audio file {audio_file} does not exist. Skipping.")
             continue
 
-        hypothesis = inference(audio_file)
-        hypothesis = normalize_text(hypothesis[0])
+        hypothesis = inference(audio_file, use_post_processing=False)
+        hypothesis = normalize_text(hypothesis[0][0])
 
         # tqdm.write(f"Reference: {reference}\nHypothesis: {hypothesis}")
         if hypothesis == "" or hypothesis == None or reference == "" or reference == None:
@@ -39,7 +39,9 @@ def evaluate_model():
 
         progress_bar.set_postfix({
             "WER": f"{score:.3f}",
-            "Avg WER": f"{(error_rate + score) / (step_count + 1):.3f}" if step_count > 0 else f"{score:.3f}"
+            "Avg WER": f"{(error_rate + score) / (step_count + 1):.3f}" if step_count > 0 else f"{score:.3f}",
+            "Accuracy": f"{(1 - score) * 100:.2f}%",
+            "Avg Accuracy": f"{(1 - (error_rate + score) / (step_count + 1)) * 100:.2f}%" if step_count > 0 else f"{(1 - score) * 100:.2f}%"
         })
         error_rate += score
         step_count += 1
@@ -50,7 +52,8 @@ def evaluate_model():
 
     error_rate /= step_count
 
-    print(f"Average WER ({step_count} samples): {error_rate}")
+    print(f"Average WER ({step_count} samples): {(1 - error_rate) * 100:.2f}%")
+    
 
 if __name__ == "__main__":
     evaluate_model()
