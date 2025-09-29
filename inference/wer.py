@@ -25,13 +25,14 @@ def evaluate_model():
             continue
 
         hypothesis = inference(audio_file, use_post_processing=False)
-        hypothesis = normalize_text(hypothesis[0][0])
+        print(hypothesis)
+        hypothesis = normalize_text(hypothesis[0])
 
         # tqdm.write(f"Reference: {reference}\nHypothesis: {hypothesis}")
         if hypothesis == "" or hypothesis == None or reference == "" or reference == None:
             tqdm.write(f"Reference: {reference} | Hypothesis: {hypothesis} | WER: 1.0")
             continue
-        score = jiwer.wer(reference, hypothesis)
+        score = jiwer.cer(reference, hypothesis)
         log_file = config.MODEL_DIR / "wer_log.txt"
 
         with open(log_file, 'a') as f:

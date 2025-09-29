@@ -1,6 +1,6 @@
 @echo off
 REM Speech Recognition Docker Management Script for Windows
-set IMAGE_NAME=sephirah07/lingua-speech:dev
+set IMAGE_NAME=sephirah07/lingua-speech:2.0.0
 
 if "%1"=="build" (
     echo Building Speech Recognition Docker image...

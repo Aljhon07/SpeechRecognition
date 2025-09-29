@@ -16,13 +16,11 @@ def index():
 
 @app.route('/transcribe', methods=['POST'])
 def transcibe():
-    
-    print(f"Received request: {request.files}")
+    user_id = request.form.get('userId')  # <-- retrieve userId
     if 'audio' not in request.files:
         return jsonify({'error': 'No audio file provided'}), 400
 
     audio_file = request.files['audio']
-    print(f"Received audio file: {audio_file}")
     if audio_file.filename == '':
         return jsonify({'error': 'No selected audio file'}), 400
 
@@ -33,11 +31,12 @@ def transcibe():
         audio_file = audio.to_wav(save_path, save_path.replace('.m4a', '.wav'))        
         os.remove(save_path)
 
-        transcript = inference(audio_file, use_post_processing=True)
+        transcript = inference(audio_file, use_post_processing=False)
         print(f"Transcription result: {transcript}")
 
-        
+        transcript = transcript[0] if transcript and isinstance(transcript, list) else transcript
         print(f"Testing transcript type: {type(transcript)}, {transcript}")
+        
         return jsonify({'transcript': transcript}), 200
 
     except Exception as e:

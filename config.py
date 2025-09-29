@@ -41,7 +41,7 @@ LIBRISPEECH_SUBSETS = [
 H_PARAMS = {
     "BASE_LR": 0.005,
     "TOTAL_EPOCH":20,
-    "VOCAB_SIZE": 5000,
+    "VOCAB_SIZE": 6000,
     "N_FEATS": 80,
     "VERBOSE": False,
     "BATCH_SIZE": 32

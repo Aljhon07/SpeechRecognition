@@ -17,7 +17,7 @@ client = genai.Client(api_key=config.GENAI_API_KEY)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = Model()
 LOCAL_MODEL_PATH = config.MODEL_DIR / 'librispeechv2'
-checkpoint_path = LOCAL_MODEL_PATH / 'checkpoint_epoch_2_val_0.7688.pth'
+checkpoint_path = LOCAL_MODEL_PATH / 'checkpoint_epoch_15_val_0.3760.pth'
 
 # Load checkpoint once
 checkpoint = torch.load(checkpoint_path, map_location=device)
@@ -78,6 +78,7 @@ def inference(file_path, use_post_processing=False):
         pred = decoded_pred
 
         if os.getenv("POST_PROCESS_WITH_AI", str(use_post_processing)).lower() == "true":
+            print(f"Using Post Processing with AI")
             try:
                 response = client.models.generate_content(
                     model="gemini-2.5-flash",
@@ -89,8 +90,9 @@ def inference(file_path, use_post_processing=False):
             except Exception as e:
                 print(f"Error during AI enhancement: {e}")
                 pred = decoded_pred
+                return pred
 
-        return [pred]
+        return pred
 
 if __name__ == '__main__':
     # path = config.COMMON_VOICE_PATH / 'clips' / 'common_voice_en_16759015.mp3'
